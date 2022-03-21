@@ -1,0 +1,10 @@
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\bin\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.deps.json
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\bin\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.dll
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\bin\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.pdb
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\obj\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.csproj.AssemblyReference.cache
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\obj\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.GeneratedMSBuildEditorConfig.editorconfig
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\obj\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.AssemblyInfoInputs.cache
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\obj\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.AssemblyInfo.cs
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\obj\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.csproj.CoreCompileInputs.cache
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\obj\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.dll
+C:\FreeLance\ContainerPacking\CromulentBisgetti.ContainerPacking\obj\Debug\netstandard2.0\CromulentBisgetti.ContainerPacking.pdb

@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "XJbNNv31HpVZZDFOSbZK+79xi8+doJnUBXg+DSQ+wAAU/D4KolBBkLB2iEj0j010wmXWnDv2JPie2oidJZY3RQ==",
+  "success": true,
+  "projectFilePath": "C:\\FreeLance\\ContainerPacking\\CromulentBisgetti.ContainerPacking\\CromulentBisgetti.ContainerPacking.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\yildi\\.nuget\\packages\\microsoft.netcore.platforms\\1.1.0\\microsoft.netcore.platforms.1.1.0.nupkg.sha512",
+    "C:\\Program Files\\dotnet\\sdk\\NuGetFallbackFolder\\netstandard.library\\2.0.3\\netstandard.library.2.0.3.nupkg.sha512"
+  ],
+  "logs": []
+}
