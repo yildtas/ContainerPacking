@@ -99,9 +99,9 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
         private decimal prelayer;
         private decimal prepackedy;
         private decimal preremainpy;
-        private decimal px;
-        private decimal py;
-        private decimal pz;
+        private decimal containerX;
+        private decimal containerY;
+        private decimal containerZ;
         private decimal remainpy;
         private decimal remainpz;
         private decimal itemsToPackCount;
@@ -208,7 +208,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                 {
                     if (layerinlayer == 0)
                     {
-                        prelayer = layerThickness;
+                        prelayer = layerThickness;//katman kalınlığı
                         lilz = smallestZ.CumZ;
                     }
 
@@ -288,32 +288,32 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                 switch (containerOrientationVariant)
                 {
                     case 1:
-                        px = container.Length; py = container.Height; pz = container.Width;
+                        containerX = container.Length; containerY = container.Height; containerZ = container.Width;
                         break;
 
                     case 2:
-                        px = container.Width; py = container.Height; pz = container.Length;
+                        containerX = container.Width; containerY = container.Height; containerZ = container.Length;
                         break;
 
                     case 3:
-                        px = container.Width; py = container.Length; pz = container.Height;
+                        containerX = container.Width; containerY = container.Length; containerZ = container.Height;
                         break;
 
                     case 4:
-                        px = container.Height; py = container.Length; pz = container.Width;
+                        containerX = container.Height; containerY = container.Length; containerZ = container.Width;
                         break;
 
                     case 5:
-                        px = container.Length; py = container.Width; pz = container.Height;
+                        containerX = container.Length; containerY = container.Width; containerZ = container.Height;
                         break;
 
                     case 6:
-                        px = container.Height; py = container.Width; pz = container.Length;
+                        containerX = container.Height; containerY = container.Width; containerZ = container.Length;
                         break;
                 }
 
                 layers.Add(new Layer { LayerEval = -1 });
-                ListCanditLayers();
+                ListCanEditLayers();
                 layers = layers.OrderBy(l => l.LayerEval).ToList();
 
                 for (layersIndex = 1; (layersIndex <= layerListLen) && !quit; layersIndex++)
@@ -323,8 +323,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     packing = true;
                     layerThickness = layers[layersIndex].LayerDim;
                     itelayer = layersIndex;
-                    remainpy = py;
-                    remainpz = pz;
+                    remainpy = containerY;
+                    remainpz = containerZ;
                     packedItemCount = 0;
 
                     for (x = 1; x <= itemsToPackCount; x++)
@@ -339,8 +339,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                         PackLayer();
 
-                        packedy = packedy + layerThickness;
-                        remainpy = py - packedy;
+                        packedy = packedy + layerThickness;//katman kalınlığı
+                        remainpy = containerY - packedy;
 
                         if (layerinlayer != 0 && !quit)
                         {
@@ -356,7 +356,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                             packedy = prepackedy;
                             remainpy = preremainpy;
-                            remainpz = pz;
+                            remainpz = containerZ;
                         }
 
                         FindLayer(remainpy);
@@ -432,7 +432,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
             int z;
             decimal layereval;
             decimal eval;
-            layerThickness = 0;
+            layerThickness = 0;//katman kalınlığı
             eval = 1000000;
 
             for (x = 1; x <= itemsToPackCount; x++)
@@ -464,7 +464,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                     layereval = 0;
 
-                    if ((exdim <= thickness) && (((dimen2 <= px) && (dimen3 <= pz)) || ((dimen3 <= px) && (dimen2 <= pz))))
+                    if ((exdim <= thickness) && (((dimen2 <= containerX) && (dimen3 <= containerZ)) || ((dimen3 <= containerX) && (dimen2 <= containerZ))))
                     {
                         for (z = 1; z <= itemsToPackCount; z++)
                         {
@@ -571,7 +571,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
         /// Lists all possible layer heights by giving a weight value to each of them.
         /// Olası tüm katman yüksekliklerini, her birine bir ağırlık değeri vererek listeler.
         /// </summary>
-        private void ListCanditLayers()
+        private void ListCanEditLayers()//Liste katmanları düzenle
         {
             bool same;
             decimal exdim = 0;
@@ -610,7 +610,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                             break;
                     }
 
-                    if ((exdim > py) || (((dimen2 > px) || (dimen3 > pz)) && ((dimen3 > px) || (dimen2 > pz)))) continue;
+                    if ((exdim > containerY) || (((dimen2 > containerX) || (dimen3 > containerZ)) && ((dimen3 > containerX) || (dimen2 > containerZ)))) continue;
 
                     same = false;
 
@@ -749,7 +749,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                 return;
             }
 
-            scrapfirst.CumX = px;
+            scrapfirst.CumX = containerX;
             scrapfirst.CumZ = 0;
 
             for (; !quit;)
@@ -933,7 +933,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                             smallestZ.CumZ = smallestZ.CumZ + cboxz;
                         }
                     }
-                    else if (smallestZ.Pre.CumX < px - smallestZ.CumX)
+                    else if (smallestZ.Pre.CumX < containerX - smallestZ.CumX)
                     {
                         if (smallestZ.CumZ + cboxz == smallestZ.Pre.CumZ)
                         {
@@ -1042,27 +1042,27 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
             switch (bestVariant)
             {
                 case 1:
-                    px = container.Length; py = container.Height; pz = container.Width;
+                    containerX = container.Length; containerY = container.Height; containerZ = container.Width;
                     break;
 
                 case 2:
-                    px = container.Width; py = container.Height; pz = container.Length;
+                    containerX = container.Width; containerY = container.Height; containerZ = container.Length;
                     break;
 
                 case 3:
-                    px = container.Width; py = container.Length; pz = container.Height;
+                    containerX = container.Width; containerY = container.Length; containerZ = container.Height;
                     break;
 
                 case 4:
-                    px = container.Height; py = container.Length; pz = container.Width;
+                    containerX = container.Height; containerY = container.Length; containerZ = container.Width;
                     break;
 
                 case 5:
-                    px = container.Length; py = container.Width; pz = container.Height;
+                    containerX = container.Length; containerY = container.Width; containerZ = container.Height;
                     break;
 
                 case 6:
-                    px = container.Height; py = container.Width; pz = container.Length;
+                    containerX = container.Height; containerY = container.Width; containerZ = container.Length;
                     break;
             }
 
@@ -1071,18 +1071,18 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
             //Print("BEST SOLUTION FOUND AT ITERATION                      :", bestIteration, "OF VARIANT", bestVariant);
             //Print("TOTAL ITEMS TO PACK                                   :", itemsToPackCount);
             //Print("TOTAL VOLUME OF ALL ITEMS                             :", totalItemVolume);
-            //Print("WHILE CONTAINER ORIENTATION X - Y - Z                 :", px, py, pz);
+            //Print("WHILE CONTAINER ORIENTATION X - Y - Z                 :", containerX, py, containerZ);
 
             layers.Clear();
             layers.Add(new Layer { LayerEval = -1 });
-            ListCanditLayers();
+            ListCanEditLayers();
             layers = layers.OrderBy(l => l.LayerEval).ToList();
             packedVolume = 0;
             packedy = 0;
             packing = true;
             layerThickness = layers[bestIteration].LayerDim;
-            remainpy = py;
-            remainpz = pz;
+            remainpy = containerY;
+            remainpz = containerZ;
 
             for (x = 1; x <= itemsToPackCount; x++)
             {
@@ -1095,7 +1095,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                 layerDone = false;
                 PackLayer();
                 packedy = packedy + layerThickness;
-                remainpy = py - packedy;
+                remainpy = containerY - packedy;
 
                 if (layerinlayer > 0.0001M)
                 {
@@ -1109,7 +1109,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     PackLayer();
                     packedy = prepackedy;
                     remainpy = preremainpy;
-                    remainpz = pz;
+                    remainpz = containerZ;
                 }
 
                 if (!quit)
