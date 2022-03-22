@@ -98,12 +98,12 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
         private decimal packedy;
         private decimal prelayer;
         private decimal prepackedy;
-        private decimal preremainpy;
+        private decimal preRemaincontainerY;
         private decimal containerX;
         private decimal containerY;
         private decimal containerZ;
-        private decimal remainpy;
-        private decimal remainpz;
+        private decimal remainContainerY;
+        private decimal remainContainerZ;
         private decimal itemsToPackCount;
         private decimal totalItemVolume;
         private decimal totalContainerVolume;
@@ -323,8 +323,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     packing = true;
                     layerThickness = layers[layersIndex].LayerDim;
                     itelayer = layersIndex;
-                    remainpy = containerY;
-                    remainpz = containerZ;
+                    remainContainerY = containerY;
+                    remainContainerZ = containerZ;
                     packedItemCount = 0;
 
                     for (x = 1; x <= itemsToPackCount; x++)
@@ -340,26 +340,26 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                         PackLayer();
 
                         packedy = packedy + layerThickness;//katman kalınlığı
-                        remainpy = containerY - packedy;
+                        remainContainerY = containerY - packedy;
 
                         if (layerinlayer != 0 && !quit)
                         {
                             prepackedy = packedy;
-                            preremainpy = remainpy;
-                            remainpy = layerThickness - prelayer;
+                            preRemaincontainerY = remainContainerY;
+                            remainContainerY = layerThickness - prelayer;
                             packedy = packedy - layerThickness + prelayer;
-                            remainpz = lilz;
+                            remainContainerZ = lilz;
                             layerThickness = layerinlayer;
                             layerDone = false;
 
                             PackLayer();
 
                             packedy = prepackedy;
-                            remainpy = preremainpy;
-                            remainpz = containerZ;
+                            remainContainerY = preRemaincontainerY;
+                            remainContainerZ = containerZ;
                         }
 
-                        FindLayer(remainpy);
+                        FindLayer(remainContainerY);
                     } while (packing && !quit);
 
                     if ((packedVolume > bestVolume) && !quit)
@@ -495,7 +495,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                 }
             }
 
-            if (layerThickness == 0 || layerThickness > remainpy) packing = false;
+            if (layerThickness == 0 || layerThickness > remainContainerY) packing = false;
         }
 
         /// <summary>
@@ -761,8 +761,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     //*** SITUATION-1: NO BOXES ON THE RIGHT AND LEFT SIDES ***
 
                     lenx = smallestZ.CumX;
-                    lpz = remainpz - smallestZ.CumZ;
-                    FindBox(lenx, layerThickness, remainpy, lpz, lpz);
+                    lpz = remainContainerZ - smallestZ.CumZ;
+                    FindBox(lenx, layerThickness, remainContainerY, lpz, lpz);
                     CheckFound();
 
                     if (layerDone) break;
@@ -793,8 +793,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                     lenx = smallestZ.CumX;
                     lenz = smallestZ.Post.CumZ - smallestZ.CumZ;
-                    lpz = remainpz - smallestZ.CumZ;
-                    FindBox(lenx, layerThickness, remainpy, lenz, lpz);
+                    lpz = remainContainerZ - smallestZ.CumZ;
+                    FindBox(lenx, layerThickness, remainContainerY, lenz, lpz);
                     CheckFound();
 
                     if (layerDone) break;
@@ -850,8 +850,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                     lenx = smallestZ.CumX - smallestZ.Pre.CumX;
                     lenz = smallestZ.Pre.CumZ - smallestZ.CumZ;
-                    lpz = remainpz - smallestZ.CumZ;
-                    FindBox(lenx, layerThickness, remainpy, lenz, lpz);
+                    lpz = remainContainerZ - smallestZ.CumZ;
+                    FindBox(lenx, layerThickness, remainContainerY, lenz, lpz);
                     CheckFound();
 
                     if (layerDone) break;
@@ -899,9 +899,9 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                     lenx = smallestZ.CumX - smallestZ.Pre.CumX;
                     lenz = smallestZ.Pre.CumZ - smallestZ.CumZ;
-                    lpz = remainpz - smallestZ.CumZ;
+                    lpz = remainContainerZ - smallestZ.CumZ;
 
-                    FindBox(lenx, layerThickness, remainpy, lenz, lpz);
+                    FindBox(lenx, layerThickness, remainContainerY, lenz, lpz);
                     CheckFound();
 
                     if (layerDone) break;
@@ -979,8 +979,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                     lenx = smallestZ.CumX - smallestZ.Pre.CumX;
                     lenz = smallestZ.Pre.CumZ - smallestZ.CumZ;
-                    lpz = remainpz - smallestZ.CumZ;
-                    FindBox(lenx, layerThickness, remainpy, lenz, lpz);
+                    lpz = remainContainerZ - smallestZ.CumZ;
+                    FindBox(lenx, layerThickness, remainContainerY, lenz, lpz);
                     CheckFound();
 
                     if (layerDone) break;
@@ -1081,8 +1081,8 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
             packedy = 0;
             packing = true;
             layerThickness = layers[bestIteration].LayerDim;
-            remainpy = containerY;
-            remainpz = containerZ;
+            remainContainerY = containerY;
+            remainContainerZ = containerZ;
 
             for (x = 1; x <= itemsToPackCount; x++)
             {
@@ -1095,26 +1095,26 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                 layerDone = false;
                 PackLayer();
                 packedy = packedy + layerThickness;
-                remainpy = containerY - packedy;
+                remainContainerY = containerY - packedy;
 
                 if (layerinlayer > 0.0001M)
                 {
                     prepackedy = packedy;
-                    preremainpy = remainpy;
-                    remainpy = layerThickness - prelayer;
+                    preRemaincontainerY = remainContainerY;
+                    remainContainerY = layerThickness - prelayer;
                     packedy = packedy - layerThickness + prelayer;
-                    remainpz = lilz;
+                    remainContainerZ = lilz;
                     layerThickness = layerinlayer;
                     layerDone = false;
                     PackLayer();
                     packedy = prepackedy;
-                    remainpy = preremainpy;
-                    remainpz = containerZ;
+                    remainContainerY = preRemaincontainerY;
+                    remainContainerZ = containerZ;
                 }
 
                 if (!quit)
                 {
-                    FindLayer(remainpy);
+                    FindLayer(remainContainerY);
                 }
             } while (packing && !quit);
         }
