@@ -610,8 +610,15 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                             break;
                     }
 
-                    if ((exdim > containerY) || (((dimen2 > containerX) || (dimen3 > containerZ)) && ((dimen3 > containerX) || (dimen2 > containerZ)))) continue;
-
+                    if ((exdim > containerY) ||
+                        (
+                            ((dimen2 > containerX) || (dimen3 > containerZ)) 
+                                                   && 
+                            ((dimen3 > containerX) || (dimen2 > containerZ))
+                        ))
+                    {
+                        continue;
+                    }
                     same = false;
 
                     for (k = 1; k <= layerListLen; k++)
