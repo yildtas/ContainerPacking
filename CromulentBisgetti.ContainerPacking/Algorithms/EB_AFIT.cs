@@ -407,15 +407,15 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
 
                 if (x > itemsToPackCount) return;
 
-                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Dim1, itemsToPack[x].Dim2, itemsToPack[x].Dim3);
+                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Length, itemsToPack[x].Width, itemsToPack[x].Height);
 
-                if ((itemsToPack[x].Dim1 == itemsToPack[x].Dim3) && (itemsToPack[x].Dim3 == itemsToPack[x].Dim2)) continue;
+                if ((itemsToPack[x].Length == itemsToPack[x].Height) && (itemsToPack[x].Height == itemsToPack[x].Width)) continue;
 
-                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Dim1, itemsToPack[x].Dim3, itemsToPack[x].Dim2);
-                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Dim2, itemsToPack[x].Dim1, itemsToPack[x].Dim3);
-                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Dim2, itemsToPack[x].Dim3, itemsToPack[x].Dim1);
-                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Dim3, itemsToPack[x].Dim1, itemsToPack[x].Dim2);
-                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Dim3, itemsToPack[x].Dim2, itemsToPack[x].Dim1);
+                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Length, itemsToPack[x].Height, itemsToPack[x].Width);
+                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Width, itemsToPack[x].Length, itemsToPack[x].Height);
+                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Width, itemsToPack[x].Height, itemsToPack[x].Length);
+                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Height, itemsToPack[x].Length, itemsToPack[x].Width);
+                AnalyzeBox(hmx, hy, hmy, hz, hmz, itemsToPack[x].Height, itemsToPack[x].Width, itemsToPack[x].Length);
             }
         }
 
@@ -444,21 +444,21 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     switch (y)
                     {
                         case 1:
-                            exdim = itemsToPack[x].Dim1;
-                            dimen2 = itemsToPack[x].Dim2;
-                            dimen3 = itemsToPack[x].Dim3;
+                            exdim = itemsToPack[x].Length;
+                            dimen2 = itemsToPack[x].Width;
+                            dimen3 = itemsToPack[x].Height;
                             break;
 
                         case 2:
-                            exdim = itemsToPack[x].Dim2;
-                            dimen2 = itemsToPack[x].Dim1;
-                            dimen3 = itemsToPack[x].Dim3;
+                            exdim = itemsToPack[x].Width;
+                            dimen2 = itemsToPack[x].Length;
+                            dimen3 = itemsToPack[x].Height;
                             break;
 
                         case 3:
-                            exdim = itemsToPack[x].Dim3;
-                            dimen2 = itemsToPack[x].Dim1;
-                            dimen3 = itemsToPack[x].Dim2;
+                            exdim = itemsToPack[x].Height;
+                            dimen2 = itemsToPack[x].Length;
+                            dimen3 = itemsToPack[x].Width;
                             break;
                     }
 
@@ -470,16 +470,16 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                         {
                             if (!(x == z) && !(itemsToPack[z].IsPacked))
                             {
-                                dimdif = Math.Abs(exdim - itemsToPack[z].Dim1);
+                                dimdif = Math.Abs(exdim - itemsToPack[z].Length);
 
-                                if (Math.Abs(exdim - itemsToPack[z].Dim2) < dimdif)
+                                if (Math.Abs(exdim - itemsToPack[z].Width) < dimdif)
                                 {
-                                    dimdif = Math.Abs(exdim - itemsToPack[z].Dim2);
+                                    dimdif = Math.Abs(exdim - itemsToPack[z].Width);
                                 }
 
-                                if (Math.Abs(exdim - itemsToPack[z].Dim3) < dimdif)
+                                if (Math.Abs(exdim - itemsToPack[z].Height) < dimdif)
                                 {
-                                    dimdif = Math.Abs(exdim - itemsToPack[z].Dim3);
+                                    dimdif = Math.Abs(exdim - itemsToPack[z].Height);
                                 }
 
                                 layereval = layereval + dimdif;
@@ -541,7 +541,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
             {
                 for (int i = 1; i <= item.Quantity; i++)
                 {
-                    Item newItem = new Item(item.ID, item.Dim1, item.Dim2, item.Dim3, item.Quantity, item.SupplierId);
+                    Item newItem = new Item(item.ID, item.Length, item.Width, item.Height, item.Quantity, item.SupplierId);
                     itemsToPack.Add(newItem);
                 }
 
@@ -592,28 +592,28 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     switch (y)
                     {
                         case 1:
-                            exdim = itemsToPack[x].Dim1;
-                            dimen2 = itemsToPack[x].Dim2;
-                            dimen3 = itemsToPack[x].Dim3;
+                            exdim = itemsToPack[x].Length;
+                            dimen2 = itemsToPack[x].Width;
+                            dimen3 = itemsToPack[x].Height;
                             break;
 
                         case 2:
-                            exdim = itemsToPack[x].Dim2;
-                            dimen2 = itemsToPack[x].Dim1;
-                            dimen3 = itemsToPack[x].Dim3;
+                            exdim = itemsToPack[x].Width;
+                            dimen2 = itemsToPack[x].Length;
+                            dimen3 = itemsToPack[x].Height;
                             break;
 
                         case 3:
-                            exdim = itemsToPack[x].Dim3;
-                            dimen2 = itemsToPack[x].Dim1;
-                            dimen3 = itemsToPack[x].Dim2;
+                            exdim = itemsToPack[x].Height;
+                            dimen2 = itemsToPack[x].Length;
+                            dimen3 = itemsToPack[x].Width;
                             break;
                     }
 
                     if ((exdim > containerY) ||
                         (
-                            ((dimen2 > containerX) || (dimen3 > containerZ)) 
-                                                   && 
+                            ((dimen2 > containerX) || (dimen3 > containerZ))
+                                                   &&
                             ((dimen3 > containerX) || (dimen2 > containerZ))
                         ))
                     {
@@ -638,15 +638,15 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     {
                         if (!(x == z))
                         {
-                            dimdif = Math.Abs(exdim - itemsToPack[z].Dim1);
+                            dimdif = Math.Abs(exdim - itemsToPack[z].Length);
 
-                            if (Math.Abs(exdim - itemsToPack[z].Dim2) < dimdif)
+                            if (Math.Abs(exdim - itemsToPack[z].Width) < dimdif)
                             {
-                                dimdif = Math.Abs(exdim - itemsToPack[z].Dim2);
+                                dimdif = Math.Abs(exdim - itemsToPack[z].Width);
                             }
-                            if (Math.Abs(exdim - itemsToPack[z].Dim3) < dimdif)
+                            if (Math.Abs(exdim - itemsToPack[z].Height) < dimdif)
                             {
-                                dimdif = Math.Abs(exdim - itemsToPack[z].Dim3);
+                                dimdif = Math.Abs(exdim - itemsToPack[z].Height);
                             }
                             layereval = layereval + dimdif;
                         }
