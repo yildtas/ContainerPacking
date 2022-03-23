@@ -321,7 +321,7 @@ namespace CromulentBisgetti.ContainerPacking.Algorithms
                     packedVolume = 0.0M;
                     packedy = 0;
                     packing = true;
-                    layerThickness = layers[layersIndex].LayerDim;
+                    layerThickness = layers[layersIndex].LayerDim;//Katman kalınlığı
                     itelayer = layersIndex;
                     remainContainerY = containerY;
                     remainContainerZ = containerZ;
