@@ -4619,11 +4619,24 @@
       "CromulentBisgetti.ContainerPacking/1.0.0": {
         "type": "project",
         "framework": ".NETStandard,Version=v2.0",
+        "dependencies": {
+          "CromulentBisgetti.Sharp3DBinPacking": "1.0.0"
+        },
         "compile": {
           "bin/placeholder/CromulentBisgetti.ContainerPacking.dll": {}
         },
         "runtime": {
           "bin/placeholder/CromulentBisgetti.ContainerPacking.dll": {}
+        }
+      },
+      "CromulentBisgetti.Sharp3DBinPacking/1.0.0": {
+        "type": "project",
+        "framework": ".NETStandard,Version=v2.0",
+        "compile": {
+          "bin/placeholder/CromulentBisgetti.Sharp3DBinPacking.dll": {}
+        },
+        "runtime": {
+          "bin/placeholder/CromulentBisgetti.Sharp3DBinPacking.dll": {}
         }
       }
     }
@@ -12603,6 +12616,11 @@
       "type": "project",
       "path": "../CromulentBisgetti.ContainerPacking/CromulentBisgetti.ContainerPacking.csproj",
       "msbuildProject": "../CromulentBisgetti.ContainerPacking/CromulentBisgetti.ContainerPacking.csproj"
+    },
+    "CromulentBisgetti.Sharp3DBinPacking/1.0.0": {
+      "type": "project",
+      "path": "../CromulentBisgetti.Sharp3DBinPacking/CromulentBisgetti.Sharp3DBinPacking.csproj",
+      "msbuildProject": "../CromulentBisgetti.Sharp3DBinPacking/CromulentBisgetti.Sharp3DBinPacking.csproj"
     }
   },
   "projectFileDependencyGroups": {

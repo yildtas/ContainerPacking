@@ -1,13 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.27703.2042
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.32228.343
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CromulentBisgetti.ContainerPacking", "CromulentBisgetti.ContainerPacking\CromulentBisgetti.ContainerPacking.csproj", "{49D6AD56-1545-4864-AC6E-80A8922742DF}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CromulentBisgetti.ContainerPackingTests", "CromulentBisgetti.ContainerPackingTests\CromulentBisgetti.ContainerPackingTests.csproj", "{6D1B78A9-06D7-4461-A1C0-C3C09DA54317}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "CromulentBisgetti.DemoApp", "CromulentBisgetti.DemoApp\CromulentBisgetti.DemoApp.csproj", "{EB1D3F02-BC70-41B6-A9E0-DD00B3266419}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CromulentBisgetti.Sharp3DBinPacking", "CromulentBisgetti.Sharp3DBinPacking\CromulentBisgetti.Sharp3DBinPacking.csproj", "{645B4CA3-EEA4-45A0-9939-184FD6360690}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,14 +19,14 @@ Global
 		{49D6AD56-1545-4864-AC6E-80A8922742DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{49D6AD56-1545-4864-AC6E-80A8922742DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{49D6AD56-1545-4864-AC6E-80A8922742DF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6D1B78A9-06D7-4461-A1C0-C3C09DA54317}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6D1B78A9-06D7-4461-A1C0-C3C09DA54317}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6D1B78A9-06D7-4461-A1C0-C3C09DA54317}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6D1B78A9-06D7-4461-A1C0-C3C09DA54317}.Release|Any CPU.Build.0 = Release|Any CPU
 		{EB1D3F02-BC70-41B6-A9E0-DD00B3266419}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EB1D3F02-BC70-41B6-A9E0-DD00B3266419}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EB1D3F02-BC70-41B6-A9E0-DD00B3266419}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EB1D3F02-BC70-41B6-A9E0-DD00B3266419}.Release|Any CPU.Build.0 = Release|Any CPU
+		{645B4CA3-EEA4-45A0-9939-184FD6360690}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{645B4CA3-EEA4-45A0-9939-184FD6360690}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{645B4CA3-EEA4-45A0-9939-184FD6360690}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{645B4CA3-EEA4-45A0-9939-184FD6360690}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

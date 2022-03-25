@@ -4,4 +4,8 @@
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\CromulentBisgetti.Sharp3DBinPacking\CromulentBisgetti.Sharp3DBinPacking.csproj" />
+  </ItemGroup>
+
 </Project>

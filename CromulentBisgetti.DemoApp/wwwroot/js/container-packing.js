@@ -90,27 +90,28 @@ var ViewModel = function () {
 		self.ItemsToPack([]);
 		//self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1000, SupplierId: 206, Name: 'Palet1', Length: 25, Width: 25, Height: 25, Quantity: 1 }));
 
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1000, SupplierId: 206, Name: 'Palet1',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1001, SupplierId: 206, Name: 'Palet2',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1002, SupplierId: 206, Name: 'Palet3',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1003, SupplierId: 206, Name: 'Palet4',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1004, SupplierId: 206, Name: 'Palet5',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1005, SupplierId: 206, Name: 'Palet6',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1006, SupplierId: 206, Name: 'Palet7',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1007, SupplierId: 206, Name: 'Palet8',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1008, SupplierId: 206, Name: 'Palet9',  Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1009, SupplierId: 206, Name: 'Palet10', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1000, SupplierId: 206, Name: 'Palet1',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1001, SupplierId: 206, Name: 'Palet2',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1002, SupplierId: 206, Name: 'Palet3',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1003, SupplierId: 206, Name: 'Palet4',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1004, SupplierId: 206, Name: 'Palet5',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1005, SupplierId: 206, Name: 'Palet6',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1006, SupplierId: 206, Name: 'Palet7',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1007, SupplierId: 206, Name: 'Palet8',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1008, SupplierId: 206, Name: 'Palet9',  Length: 50, Width: 50, Height: 80, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1009, SupplierId: 206, Name: 'Palet10', Length: 50, Width: 50, Height: 80, Quantity: 1 }));
 
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1000, SupplierId: 206, Name: 'Palet1', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1001, SupplierId: 206, Name: 'Palet2', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1002, SupplierId: 206, Name: 'Palet3', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1003, SupplierId: 206, Name: 'Palet4', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1004, SupplierId: 206, Name: 'Palet5', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1005, SupplierId: 206, Name: 'Palet6', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1006, SupplierId: 206, Name: 'Palet7', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1007, SupplierId: 206, Name: 'Palet8', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1008, SupplierId: 206, Name: 'Palet9', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
-		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1009, SupplierId: 206, Name: 'Palet10', Length: 25, Width: 50, Height: 100, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1000, SupplierId: 206, Name: 'Palet1', Length: 50, Width: 50, Height: 40, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1001, SupplierId: 206, Name: 'Palet2', Length: 50, Width: 50, Height: 40, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1002, SupplierId: 206, Name: 'Palet3', Length: 50, Width: 50, Height: 40, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1003, SupplierId: 206, Name: 'Palet4', Length: 50, Width: 50, Height: 40, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1004, SupplierId: 206, Name: 'Palet5', Length: 50, Width: 50, Height: 50, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1005, SupplierId: 206, Name: 'Palet6', Length: 50, Width: 50, Height: 50, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1006, SupplierId: 206, Name: 'Palet7', Length: 50, Width: 50, Height: 50, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1007, SupplierId: 206, Name: 'Palet8', Length: 50, Width: 50, Height: 50, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1008, SupplierId: 206, Name: 'Palet9', Length: 50, Width: 50, Height: 50, Quantity: 1 }));
+		self.ItemsToPack.push(ko.mapping.fromJS({ ID: 1009, SupplierId: 206, Name: 'Palet10',Length: 50, Width: 50, Height: 50, Quantity: 1 }));
+
 	};
 
 	self.AddAlgorithmToUse = function () {
