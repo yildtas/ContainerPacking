@@ -177,7 +177,17 @@ namespace ContainerPacking.CromulentBisgetti.Entities
         public int SupplierId { get; set; }
 
         [DataMember]
+        public int No { get; set; }
+
+        [DataMember]
         public decimal Floor { get; set; }
+
+        [DataMember]
+        public int ContainerHeight { get; set; }
+
+        [DataMember]
+        public int ContainerFloor { get; set; }
+
         #endregion Public Properties
     }
 }

@@ -1,14 +1,14 @@
 ﻿using ContainerPacking.CromulentBisgetti.Entities;
 using ContainerPacking.DemoApp.Models;
-using ExcelDataReader;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace ContainerPacking.DemoApp.Controllers
 {
@@ -23,62 +23,84 @@ namespace ContainerPacking.DemoApp.Controllers
             _env = env;
         }
 
-        public IActionResult Index()
+        private List<Item> GetItemsToPack(DataTable table)
         {
             List<Item> itemsToPack = new List<Item>();
 
+            foreach (DataRow row in table.Rows)
+            {
+                Item item = new Item();
+
+                item.No = Convert.ToInt32(row["No"]);
+                item.SupplierId = Convert.ToInt32(row["SupplierId"]);
+                item.Dim1 = Convert.ToInt32(row["PalletWidth"]);
+                item.Dim2 = Convert.ToInt32(row["PalletLength"]);
+                item.Dim3 = Convert.ToInt32(row["PalletHeight"]);
+                item.Floor = Convert.ToDecimal(row["PalletFloor"]);
+
+                item.ContainerHeight = Convert.ToInt32(row["ContainerHeight"]);
+                item.ContainerFloor = Convert.ToInt32(row["ContainerFloor"]);
+
+                itemsToPack.Add(item);
+            }
+            return itemsToPack;
+        }
+
+        public IActionResult Index()
+        {
             string[] filePaths = Directory.GetFiles(Path.Combine(_env.WebRootPath, "xlsx/"));
 
-            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+            DataTableCollection sheets = ExcelDataContext.GetInstance(filePaths[0]).Sheets;
 
-            using (var stream = System.IO.File.Open(filePaths[0], FileMode.Open, FileAccess.Read))
+            foreach (DataTable table in sheets)
             {
-                using (var reader = ExcelReaderFactory.CreateReader(stream))
+                List<Item> itemsToPack = GetItemsToPack(table);
+
+                int containerFloor = itemsToPack.FirstOrDefault().ContainerFloor;
+                int containerHeigh = itemsToPack.FirstOrDefault().ContainerHeight;
+                List<ContainerPackingResult> result = new List<ContainerPackingResult>();
+
+                var groupedItemsToPacks = itemsToPack.GroupBy(ip => ip.SupplierId);
+                List<Item> loadedItems = new List<Item>();
+                decimal totalLoadedFloor = 0;
+
+                foreach (var groupedItemsToPack in groupedItemsToPacks)
                 {
-                    while (reader.Read()) //Each row of the file
+                    var groupByFloorItemsToPacks = groupedItemsToPack
+                        .GroupBy(op => op.Dim1 * op.Dim2 * op.Dim3)
+                        .OrderByDescending(p => p.Key);
+
+                    decimal totalPackHeigh = 0;
+                    List<Item> outPacket = new List<Item>();
+
+                    foreach (var groupByFloorItemsToPack in groupByFloorItemsToPacks)
                     {
+                        int count = 1;
+                        int itemsPackCount = groupByFloorItemsToPack.Count();
 
-                        string id = reader.GetValue(0).ToString();
-
-                    }
-                }
-
-
-            }
-
-
-            int containerFloor = 33;
-            int containerHeigh = 3000;
-            List<ContainerPackingResult> result = new List<ContainerPackingResult>();
-
-            var groupedItemsToPacks = itemsToPack.GroupBy(ip => ip.SupplierId);
-            List<Item> loadedItems = new List<Item>();
-            decimal totalLoadedFloor = 0;
-
-            foreach (var groupedItemsToPack in groupedItemsToPacks)
-            {
-                var groupByFloorItemsToPacks = groupedItemsToPack
-                    .GroupBy(op => op.Dim1 * op.Dim2 * op.Dim3)
-                    .OrderByDescending(p => p.Key);
-
-                decimal totalPackHeigh = 0;
-                List<Item> outPacket = new List<Item>();
-
-                foreach (var groupByFloorItemsToPack in groupByFloorItemsToPacks)
-                {
-                    int count = 1;
-                    int itemsPackCount = groupByFloorItemsToPack.Count();
-
-                    foreach (var pack in groupByFloorItemsToPack)
-                    {
-                        int supplierId = pack.SupplierId;
-                        decimal height = pack.Dim3;
-                        decimal floor = pack.Floor;
-
-                        totalPackHeigh = totalPackHeigh + height;
-
-                        if (count == itemsPackCount)
+                        foreach (var pack in groupByFloorItemsToPack)
                         {
+                            int supplierId = pack.SupplierId;
+                            decimal height = pack.Dim3;
+                            decimal floor = pack.Floor;
+
+                            totalPackHeigh = totalPackHeigh + height;
+
+                            if (count == itemsPackCount)
+                            {
+                                if (totalPackHeigh <= containerHeigh)
+                                {
+                                    loadedItems.Add(pack);
+                                    totalLoadedFloor = totalLoadedFloor + floor;
+                                }
+                                else
+                                {
+                                    outPacket.Add(pack);
+                                    totalPackHeigh = 0;
+                                }
+                                break;
+                            }
+
                             if (totalPackHeigh <= containerHeigh)
                             {
                                 loadedItems.Add(pack);
@@ -86,95 +108,87 @@ namespace ContainerPacking.DemoApp.Controllers
                             }
                             else
                             {
-                                outPacket.Add(pack);
-                                totalPackHeigh = 0;
+                                totalPackHeigh = height;
+                                totalLoadedFloor = totalLoadedFloor + floor;
+                                loadedItems.Add(pack);
                             }
-                            break;
-                        }
 
-                        if (totalPackHeigh <= containerHeigh)
-                        {
-                            loadedItems.Add(pack);
-                            totalLoadedFloor = totalLoadedFloor + floor;
-                        }
-                        else
-                        {
-                            totalPackHeigh = height;
-                            totalLoadedFloor = totalLoadedFloor + floor;
-                            loadedItems.Add(pack);
-                        }
-
-                        if (totalLoadedFloor > containerFloor)
-                        {
-                            //return result;
-                        }
-
-                        count++;
-                    }
-                }
-
-                int outPacketCount = outPacket.Count;
-                if (outPacketCount == 1)
-                {
-                    Item pack = outPacket.FirstOrDefault();
-                    decimal newFloor = containerHeigh / pack.Dim3 * pack.Floor;
-                    pack.Floor = newFloor;
-
-                    totalLoadedFloor = totalLoadedFloor + newFloor;
-                    loadedItems.Add(pack);
-                }
-                else
-                {
-                    int outCount = 1;
-
-                    foreach (Item outPack in outPacket.OrderByDescending(p => p.Dim3))
-                    {
-                        int supplierId = outPack.SupplierId;
-                        decimal height = outPack.Dim3;
-                        decimal floor = outPack.Floor;
-
-                        totalPackHeigh = totalPackHeigh + height;
-
-                        if (outCount == outPacketCount)
-                        {
-                            if (totalPackHeigh > containerHeigh)
+                            if (totalLoadedFloor > containerFloor)
                             {
-                                decimal newFloor = containerHeigh / outPack.Dim3 * outPack.Floor;
-                                outPack.Floor = newFloor;
-
-                                totalLoadedFloor = totalLoadedFloor + newFloor;
-                                loadedItems.Add(outPack);
+                                //return result;
                             }
-                            else
+
+                            count++;
+                        }
+                    }
+
+                    int outPacketCount = outPacket.Count;
+                    if (outPacketCount == 1)
+                    {
+                        Item pack = outPacket.FirstOrDefault();
+                        decimal newFloor = containerHeigh / pack.Dim3 * pack.Floor;
+                        pack.Floor = newFloor;
+
+                        totalLoadedFloor = totalLoadedFloor + newFloor;
+                        loadedItems.Add(pack);
+                    }
+                    else
+                    {
+                        int outCount = 1;
+
+                        foreach (Item outPack in outPacket.OrderByDescending(p => p.Dim3))
+                        {
+                            int supplierId = outPack.SupplierId;
+                            decimal height = outPack.Dim3;
+                            decimal floor = outPack.Floor;
+
+                            totalPackHeigh = totalPackHeigh + height;
+
+                            if (outCount == outPacketCount)
+                            {
+                                if (totalPackHeigh > containerHeigh)
+                                {
+                                    decimal newFloor = containerHeigh / outPack.Dim3 * outPack.Floor;
+                                    outPack.Floor = newFloor;
+
+                                    totalLoadedFloor = totalLoadedFloor + newFloor;
+                                    loadedItems.Add(outPack);
+                                }
+                                else
+                                {
+                                    loadedItems.Add(outPack);
+                                    totalLoadedFloor = totalLoadedFloor + floor;
+                                }
+
+                                break;
+                            }
+
+                            if (totalPackHeigh <= containerHeigh)
                             {
                                 loadedItems.Add(outPack);
                                 totalLoadedFloor = totalLoadedFloor + floor;
                             }
+                            else
+                            {
+                                totalPackHeigh = height;
+                                totalLoadedFloor = totalLoadedFloor + floor;
+                                loadedItems.Add(outPack);
+                            }
 
-                            break;
+                            if (totalLoadedFloor > containerFloor)
+                            {
+                                //return result;
+                            }
+                            outCount++;
                         }
-
-                        if (totalPackHeigh <= containerHeigh)
-                        {
-                            loadedItems.Add(outPack);
-                            totalLoadedFloor = totalLoadedFloor + floor;
-                        }
-                        else
-                        {
-                            totalPackHeigh = height;
-                            totalLoadedFloor = totalLoadedFloor + floor;
-                            loadedItems.Add(outPack);
-                        }
-
-                        if (totalLoadedFloor > containerFloor)
-                        {
-                            //return result;
-                        }
-                        outCount++;
                     }
+
                 }
 
             }
+
+
+
 
             return View();
         }
