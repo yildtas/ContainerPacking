@@ -23,29 +23,6 @@ namespace ContainerPacking.DemoApp.Controllers
             _env = env;
         }
 
-        private List<Item> GetItemsToPack(DataTable table)
-        {
-            List<Item> itemsToPack = new List<Item>();
-
-            foreach (DataRow row in table.Rows)
-            {
-                Item item = new Item();
-
-                item.No = Convert.ToInt32(row["No"]);
-                item.SupplierId = Convert.ToInt32(row["SupplierId"]);
-                item.Dim1 = Convert.ToInt32(row["PalletWidth"]);
-                item.Dim2 = Convert.ToInt32(row["PalletLength"]);
-                item.Dim3 = Convert.ToInt32(row["PalletHeight"]);
-                item.Floor = Convert.ToDecimal(row["PalletFloor"]);
-
-                item.ContainerHeight = Convert.ToInt32(row["ContainerHeight"]);
-                item.ContainerFloor = Convert.ToInt32(row["ContainerFloor"]);
-
-                itemsToPack.Add(item);
-            }
-            return itemsToPack;
-        }
-
         public IActionResult Index()
         {
             string[] filePaths = Directory.GetFiles(Path.Combine(_env.WebRootPath, "xlsx/"));
@@ -193,15 +170,27 @@ namespace ContainerPacking.DemoApp.Controllers
             return View();
         }
 
-        public IActionResult Privacy()
+        private List<Item> GetItemsToPack(DataTable table)
         {
-            return View();
-        }
+            List<Item> itemsToPack = new List<Item>();
 
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
-        public IActionResult Error()
-        {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            foreach (DataRow row in table.Rows)
+            {
+                Item item = new Item();
+
+                item.No = Convert.ToInt32(row["No"]);
+                item.SupplierId = Convert.ToInt32(row["SupplierId"]);
+                item.Dim1 = Convert.ToInt32(row["PalletWidth"]);
+                item.Dim2 = Convert.ToInt32(row["PalletLength"]);
+                item.Dim3 = Convert.ToInt32(row["PalletHeight"]);
+                item.Floor = Convert.ToDecimal(row["PalletFloor"]);
+
+                item.ContainerHeight = Convert.ToInt32(row["ContainerHeight"]);
+                item.ContainerFloor = Convert.ToInt32(row["ContainerFloor"]);
+
+                itemsToPack.Add(item);
+            }
+            return itemsToPack;
         }
     }
 }
