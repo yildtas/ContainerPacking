@@ -34,9 +34,17 @@ namespace ContainerPacking.DemoApp.Controllers
                 listItemsToPack.Add(GetItemsToPack(table));
             }
 
+            int count = 0;
             foreach (List<Item> itemsToPack in listItemsToPack)
             {
+                //if (count == 6)
+                //{
+                //    LoadedPallets(itemsToPack);
+                //}
+
                 LoadedPallets(itemsToPack);
+
+                count++;
             }
 
             return View(listItemsToPack);
