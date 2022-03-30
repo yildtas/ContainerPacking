@@ -37,7 +37,7 @@ namespace ContainerPacking.DemoApp.Controllers
             int count = 0;
             foreach (List<Item> itemsToPack in listItemsToPack)
             {
-                //if (count == 6)
+                //if (count == 0)
                 //{
                 //    LoadedPallets(itemsToPack);
                 //}
@@ -46,6 +46,7 @@ namespace ContainerPacking.DemoApp.Controllers
 
                 count++;
             }
+
 
             return View(listItemsToPack);
         }
@@ -127,8 +128,9 @@ namespace ContainerPacking.DemoApp.Controllers
                 if (outPacketCount == 1)
                 {
                     Item pack = outPacket.FirstOrDefault();
+                    pack.IsOut = true;
+
                     decimal newFloor = (containerHeigh / pack.Dim3) * pack.Floor;
-                    pack.Floor = newFloor;
 
                     totalLoadedFloor = totalLoadedFloor + newFloor;
 
@@ -140,8 +142,8 @@ namespace ContainerPacking.DemoApp.Controllers
                         return itemsToPack;//Return
                     }
 
+                    pack.Floor = newFloor;
                     pack.IsLoad = true;
-                    pack.IsOut = true;
                     loadedItems.Add(pack);
                 }
                 else
