@@ -34,12 +34,10 @@ namespace ContainerPacking.DemoApp.Controllers
                 listItemsToPack.Add(GetItemsToPack(table));
             }
 
-            //foreach (List<Item> itemsToPack in listItemsToPack)
-            //{
-            //    LoadedPallets(itemsToPack);
-            //}
-            LoadedPallets(listItemsToPack[6]);
-
+            foreach (List<Item> itemsToPack in listItemsToPack)
+            {
+                LoadedPallets(itemsToPack);
+            }
 
             return View(listItemsToPack);
         }
@@ -121,20 +119,21 @@ namespace ContainerPacking.DemoApp.Controllers
                 if (outPacketCount == 1)
                 {
                     Item pack = outPacket.FirstOrDefault();
-                    decimal newFloor = containerHeigh / (pack.Dim3 * pack.Floor);
+                    decimal newFloor = (containerHeigh / pack.Dim3) * pack.Floor;
                     pack.Floor = newFloor;
 
                     totalLoadedFloor = totalLoadedFloor + newFloor;
 
-                    //if (totalLoadedFloor > containerFloor)
-                    //{
-                    //    totalLoadedFloor = totalLoadedFloor - newFloor;
+                    if (totalLoadedFloor > containerFloor)
+                    {
+                        totalLoadedFloor = totalLoadedFloor - newFloor;
 
-                    //    itemsToPack.ForEach(p => p.TotalLoadedFloor = totalLoadedFloor);
-                    //    return itemsToPack;//Return
-                    //}
+                        itemsToPack.ForEach(p => p.TotalLoadedFloor = totalLoadedFloor);
+                        return itemsToPack;//Return
+                    }
 
                     pack.IsLoad = true;
+                    pack.IsOut = true;
                     loadedItems.Add(pack);
                 }
                 else
@@ -159,11 +158,13 @@ namespace ContainerPacking.DemoApp.Controllers
                                 totalLoadedFloor = totalLoadedFloor + newFloor;
 
                                 outPack.IsLoad = true;
+                                outPack.IsOut = true;
                                 loadedItems.Add(outPack);
                             }
                             else
                             {
                                 outPack.IsLoad = true;
+                                outPack.IsOut = true;
                                 loadedItems.Add(outPack);
 
                                 totalLoadedFloor = totalLoadedFloor + floor;
@@ -175,6 +176,7 @@ namespace ContainerPacking.DemoApp.Controllers
                         if (totalPackHeigh <= containerHeigh)
                         {
                             outPack.IsLoad = true;
+                            outPack.IsOut = true;
                             loadedItems.Add(outPack);
 
                             totalLoadedFloor = totalLoadedFloor + floor;
@@ -185,6 +187,7 @@ namespace ContainerPacking.DemoApp.Controllers
                             totalLoadedFloor = totalLoadedFloor + floor;
 
                             outPack.IsLoad = true;
+                            outPack.IsOut = true;
                             loadedItems.Add(outPack);
                         }
 

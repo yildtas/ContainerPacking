@@ -189,6 +189,7 @@ namespace ContainerPacking.CromulentBisgetti.Entities
         public int ContainerFloor { get; set; }
 
         public bool IsLoad { get; set; }
+        public bool IsOut { get; set; }
 
         public decimal TotalLoadedFloor { get; set; }
 
