@@ -188,6 +188,10 @@ namespace ContainerPacking.CromulentBisgetti.Entities
         [DataMember]
         public int ContainerFloor { get; set; }
 
+        public bool IsLoad { get; set; }
+
+        public decimal TotalLoadedFloor { get; set; }
+
         #endregion Public Properties
     }
 }

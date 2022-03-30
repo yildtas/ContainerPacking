@@ -1,36 +1,128 @@
-﻿@{
+﻿@model List<List<ContainerPacking.CromulentBisgetti.Entities.Item>>
+
+
+@{
     ViewData["Title"] = "Home Page";
+    int count = 1;
 }
 
+<style type="text/css">
+    tr {
+        line-height: 10px;
+        min-height: 25px;
+        height: 25px;
+    }
+</style>
+
 <div class="text-center">
-    <table class="table">
-        <thead>
-            <tr>
-                <th scope="col">#</th>
-                <th scope="col">First</th>
-                <th scope="col">Last</th>
-                <th scope="col">Handle</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <th scope="row">1</th>
-                <td>Mark</td>
-                <td>Otto</td>
-                <td>mdo</td>
-            </tr>
-            <tr>
-                <th scope="row">2</th>
-                <td>Jacob</td>
-                <td>Thornton</td>
-                <td>fat</td>
-            </tr>
-            <tr>
-                <th scope="row">3</th>
-                <td>Larry</td>
-                <td>the Bird</td>
-                <td>twitter</td>
-            </tr>
-        </tbody>
-    </table>
+
+    @foreach (var listItem in Model)
+    {
+        decimal totalFloor = listItem.FirstOrDefault().TotalLoadedFloor;
+        int containerFloor = listItem.FirstOrDefault().ContainerFloor;
+        int containerHeigh = listItem.FirstOrDefault().ContainerHeight;
+
+        <h5 style="float:left">
+            Tır <b>@count</b>
+            Tır Yükselik:<b>@containerHeigh</b>
+            Tır Floor:<b>@containerFloor</b>
+            Yüklenen Floor:<b>@totalFloor</b>
+        </h5>
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">No</th>
+                    <th scope="col">Supplier</th>
+                    <th scope="col">Width</th>
+                    <th scope="col">Length</th>
+                    <th scope="col">Height</th>
+                    <th scope="col">Palet Floor</th>
+                    <th scope="col">Yüklendi</th>
+
+
+
+                </tr>
+            </thead>
+            <tbody>
+
+                @foreach (var item in listItem)
+                {
+                    <tr>
+                        <th scope="row">@item.No</th>
+                        <td>@item.SupplierId</td>
+                        <td>@item.Dim1</td>
+                        <td>@item.Dim2</td>
+                        <td>@item.Dim3</td>
+                        <td>@item.Floor</td>
+                        <td>
+                            @if (item.IsLoad)
+                            {
+                                <Text>+</Text>
+                            }
+                        </td>
+
+                    </tr>
+
+                }
+
+            </tbody>
+        </table>
+        count++;
+    }
+
+    @*@foreach (var listItem in Model)
+        {
+            decimal totalFloor = listItem.FirstOrDefault().TotalLoadedFloor;
+            int containerFloor = listItem.FirstOrDefault().ContainerFloor;
+            int containerHeigh = listItem.FirstOrDefault().ContainerHeight;
+
+            <h5 style="float:left">
+                Tır <b>@count</b>
+                Tır Yükselik:<b>@containerHeigh</b>
+                Tır Floor:<b>@containerFloor</b>
+                Yüklenen Floor:<b>@totalFloor</b>
+            </h5>
+
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th scope="col">No</th>
+                        <th scope="col">Supplier</th>
+                        <th scope="col">Width</th>
+                        <th scope="col">Length</th>
+                        <th scope="col">Height</th>
+                        <th scope="col">Palet Floor</th>
+                        <th scope="col">Yüklendi</th>
+
+
+
+                    </tr>
+                </thead>
+                <tbody>
+
+                    @foreach (var item in listItem)
+                    {
+                        <tr>
+                            <th scope="row">@item.No</th>
+                            <td>@item.SupplierId</td>
+                            <td>@item.Dim1</td>
+                            <td>@item.Dim2</td>
+                            <td>@item.Dim3</td>
+                            <td>@item.Floor</td>
+                            <td>
+                                @if (item.IsLoad)
+                                {
+                                    <Text>+</Text>
+                                }
+                            </td>
+
+                        </tr>
+
+                    }
+
+                </tbody>
+            </table>
+            count++;
+        }*@
 </div>
