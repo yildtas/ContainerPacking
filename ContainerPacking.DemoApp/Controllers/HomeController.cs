@@ -27,7 +27,7 @@ namespace ContainerPacking.DemoApp.Controllers
             List<List<Item>> listItemsToPack = new List<List<Item>>();
             string[] filePaths = Directory.GetFiles(Path.Combine(_env.WebRootPath, "xlsx/"));
 
-            DataTableCollection sheets = ExcelDataContext.GetInstance(filePaths[0]).Sheets;
+            DataTableCollection sheets = ExcelDataContext.GetInstance(filePaths[3]).Sheets;
 
             foreach (DataTable table in sheets)
             {
@@ -35,14 +35,21 @@ namespace ContainerPacking.DemoApp.Controllers
             }
 
             int count = 0;
+            bool debug = false;
+            int index = 2;
             foreach (List<Item> itemsToPack in listItemsToPack)
             {
-                //if (count == 0)
-                //{
-                //    LoadedPallets(itemsToPack);
-                //}
-
-                LoadedPallets(itemsToPack);
+                if (debug)
+                {
+                    if (count == index)
+                    {
+                        LoadedPallets(itemsToPack);
+                    }
+                }
+                else
+                {
+                    LoadedPallets(itemsToPack);
+                }
 
                 count++;
             }
@@ -87,9 +94,18 @@ namespace ContainerPacking.DemoApp.Controllers
                         {
                             if (totalPackHeigh <= containerHeigh)
                             {
-                                pack.IsLoad = true;
-                                loadedItems.Add(pack);
-                                totalLoadedFloor = totalLoadedFloor + floor;
+                                if (itemsPackCount == 1)//Tedarikçiye ait tek ürün varsa outPacket e ekle
+                                {
+                                    outPacket.Add(pack);
+                                    totalPackHeigh = 0;
+                                }
+                                else
+                                {
+                                    pack.IsLoad = true;
+                                    loadedItems.Add(pack);
+                                    totalLoadedFloor = totalLoadedFloor + floor;
+                                }
+
                             }
                             else
                             {
@@ -142,7 +158,8 @@ namespace ContainerPacking.DemoApp.Controllers
                         return itemsToPack;//Return
                     }
 
-                    pack.Floor = newFloor;
+                    //pack.Floor = newFloor;                    
+                    pack.NewFloor = newFloor;
                     pack.IsLoad = true;
                     loadedItems.Add(pack);
                 }
@@ -163,7 +180,8 @@ namespace ContainerPacking.DemoApp.Controllers
                             if (totalPackHeigh > containerHeigh)
                             {
                                 decimal newFloor = containerHeigh / outPack.Dim3 * outPack.Floor;
-                                outPack.Floor = newFloor;
+                                //outPack.Floor = newFloor;
+                                outPack.NewFloor = newFloor;
 
                                 totalLoadedFloor = totalLoadedFloor + newFloor;
 
@@ -219,6 +237,7 @@ namespace ContainerPacking.DemoApp.Controllers
         private List<Item> GetItemsToPack(DataTable table)
         {
             List<Item> itemsToPack = new List<Item>();
+            List<Item> newItemsToPack = new List<Item>();
 
             foreach (DataRow row in table.Rows)
             {
@@ -236,7 +255,20 @@ namespace ContainerPacking.DemoApp.Controllers
 
                 itemsToPack.Add(item);
             }
-            return itemsToPack;
+
+
+            itemsToPack = itemsToPack.OrderBy(p => p.Dim1 * p.Dim2 * p.Dim3).OrderBy(p => p.SupplierId).ToList();
+
+            var groupedItemsToPacks = itemsToPack.GroupBy(ip => ip.SupplierId).OrderByDescending(p => p.Count());
+            foreach (var group in groupedItemsToPacks)
+            {
+                foreach (var item in group)
+                {
+                    newItemsToPack.Add(item);
+                }
+            }
+
+            return newItemsToPack;
         }
     }
 }

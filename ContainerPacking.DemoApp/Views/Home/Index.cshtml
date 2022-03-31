@@ -17,77 +17,90 @@
 <div class="text-center">
 
     @foreach (var listItem in Model)
-        {
-            decimal totalFloor = listItem.FirstOrDefault().TotalLoadedFloor;
-            int containerFloor = listItem.FirstOrDefault().ContainerFloor;
-            int containerHeigh = listItem.FirstOrDefault().ContainerHeight;
+    {
+        decimal totalFloor = listItem.FirstOrDefault().TotalLoadedFloor;
+        int containerFloor = listItem.FirstOrDefault().ContainerFloor;
+        int containerHeigh = listItem.FirstOrDefault().ContainerHeight;
 
-            <h5 style="float:left">
-                Tır <b>@count</b>
-                Tır Yükselik:<b>@containerHeigh</b>
-                Tır Floor:<b>@containerFloor</b>
-                Yüklenen Floor:<b>@totalFloor</b>
-            </h5>
+        <h5 style="float:left">
+            Tır <b>@count</b>
+            Tır Yükselik:<b>@containerHeigh</b>
+            Tır Floor:<b>@containerFloor</b>
+            Yüklenen Floor:<b>@totalFloor</b>
+        </h5>
 
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th scope="col">No</th>
-                        <th scope="col">Supplier</th>
-                        <th scope="col">Width</th>
-                        <th scope="col">Length</th>
-                        <th scope="col">Height</th>
-                        <th scope="col">Palet Floor</th>
-                        <th scope="col">Yüklendi</th>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">No</th>
+                    <th scope="col">Supplier</th>
+                    <th scope="col">Width</th>
+                    <th scope="col">Length</th>
+                    <th scope="col">Height</th>
+                    <th scope="col">Palet Floor</th>
+                    <th scope="col">New Palet Floor</th>
+                    <th scope="col">Yüklendi</th>
 
 
 
-                    </tr>
-                </thead>
-                <tbody>
+                </tr>
+            </thead>
+            <tbody>
 
-                    @foreach (var item in listItem)
+                @foreach (var item in listItem)
+                {
+                    if (item.IsOut)
                     {
-                        if (item.IsOut)
-                        {
-                            <tr style="background-color: #ff004854">
-                                <th scope="row">@item.No</th>
-                                <td>@item.SupplierId</td>
-                                <td>@item.Dim1</td>
-                                <td>@item.Dim2</td>
-                                <td>@item.Dim3</td>
-                                <td>@item.Floor</td>
-                                <td>
-                                    @if (item.IsLoad)
-                                    {
-                                        <Text>+</Text>
-                                    }
-                                </td>
+                        <tr style="background-color: #ff004854">
+                            <th scope="row">@item.No</th>
+                            <td>@item.SupplierId</td>
+                            <td>@item.Dim1</td>
+                            <td>@item.Dim2</td>
+                            <td>@item.Dim3</td>
+                            <td>@item.Floor</td>
+                            <td>
+                                @if (item.NewFloor > 0)
+                                {
+                                    <Text>@item.NewFloor</Text>
+                                }
+                            </td>
+                            <td>
+                                @if (item.IsLoad)
+                                {
+                                    <Text>+</Text>
+                                }
+                            </td>
 
-                            </tr>
-                        }
-                        else
-                        {
-                            <tr>
-                                <th scope="row">@item.No</th>
-                                <td>@item.SupplierId</td>
-                                <td>@item.Dim1</td>
-                                <td>@item.Dim2</td>
-                                <td>@item.Dim3</td>
-                                <td>@item.Floor</td>
-                                <td>
-                                    @if (item.IsLoad)
-                                    {
-                                        <Text>+</Text>
-                                    }
-                                </td>
-
-                            </tr>
-                        }
+                        </tr>
                     }
+                    else
+                    {
+                        <tr>
+                            <th scope="row">@item.No</th>
+                            <td>@item.SupplierId</td>
+                            <td>@item.Dim1</td>
+                            <td>@item.Dim2</td>
+                            <td>@item.Dim3</td>
+                            <td>@item.Floor</td>
+                            <td>
+                                @if (item.NewFloor > 0)
+                                {
+                                    <Text>@item.NewFloor</Text>
+                                }
+                            </td>
+                            <td>
+                                @if (item.IsLoad)
+                                {
+                                    <Text>+</Text>
+                                }
+                            </td>
 
-                </tbody>
-            </table>
-            count++;
-        }
+                        </tr>
+                    }
+                }
+
+            </tbody>
+        </table>
+        count++;
+    }
 </div>

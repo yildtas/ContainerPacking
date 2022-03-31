@@ -183,6 +183,9 @@ namespace ContainerPacking.CromulentBisgetti.Entities
         public decimal Floor { get; set; }
 
         [DataMember]
+        public decimal NewFloor { get; set; }
+
+        [DataMember]
         public int ContainerHeight { get; set; }
 
         [DataMember]
