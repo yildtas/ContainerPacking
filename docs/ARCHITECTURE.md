@@ -122,6 +122,20 @@ Kaynak: Pulse benzeri programda `FER-7 ON.PXF` ekranı, ölçülü kağıt tasla
 | Dikiş boyu bantları | %88 satin; 7–12 mm yalnız 19 dikiş | Uzun atış yok; split nadiren gerekir |
 | İplik yolu | 258 m | Maliyet/süre tahmini girdisi |
 
+**Dikilmiş örnekler (21 Eylül 2026, üç panel fotoğrafı: kırmızı arka, kırmızı ön, siyah ön):**
+
+| Gözlem | Sonuç |
+|---|---|
+| Neredeyse bütün motif satin; dolgu (Tatami) alanı yok denecek kadar az | Kalitenin belirleyicisi satin motoru (§11.3) |
+| Kolonlar kıvrımı izleyerek dönüyor, uçlar sivri "virgül" gibi inceliyor; yapraklarda orta damar (iki kolon birleşimi) | Stroke + taper ve Rails + rung modları doğru seçim; yaprak damarı = iki kolon |
+| Siyah panel FER-7 ile aynı motif ailesi (halat bordür, yıldızlar, spiraller) | Halat bordür gerçek ihtiyaç → parametrik nesne önceliği yükseldi |
+| Ön paneller sol/sağ çift (kırmızı ön, siyah ön); arka panel simetrik | **Ayna kopyası** (tasarım/nesne yansıtma, dikiş yönü korunarak) gerekli |
+| Kalıbın dış çizgisi ince düz dikişle çizilmiş | Kesim çizgisi = `data-stitch="run"` (destekleniyor) |
+| Taşlar dikişten sonra elle eklenmiş; kolon kenarlarına paralel zincirler ve spiral merkezlerinde tek taş | Taş kapsam dışı; ancak tasarımda taş kanalı boşluğu bırakılıyor — vektörü hazırlayan kişinin işi |
+| Kumaşlar ince (krep/gabardin benzeri), belirgin büzülme görünmüyor | Stabilizer kullanılıyor; pull comp ve underlay varsayılanları kalibrasyonla doğrulanmalı |
+| Kırmızıda parlak sarı, siyahta antik altın görünümlü iplik | İki ayrı iplik profili olabilir (metalik mi, polyester mi — doğrulanmalı) |
+| Cetvelde panel yüksekliği ~30 cm üstü; FER-7 288×505 mm | Büyük çerçeveli endüstriyel makine; kasnak modeli genişletilmeli |
+
 Taslak ile DST arasındaki fark (çiçek → yıldız) gösteriyor ki taslak yalnız başlangıç;
 vektörü hazırlayan insan son motifi belirliyor. Halat bordür, üst üste binen kısa eğik satin
 parçalarından oluşuyor (ileride parametrik "halat" nesnesi adayı).
@@ -489,7 +503,8 @@ Ayrıntı: `THIRD-PARTY-NOTICES.md`.
 | 5 | **FER-7 vektörünün sözleşmeyle çizilmesi** (insan işi) ve `compare` | Satin genişliği ±%5, sıklık ±%10, trim sayısı ≤ referans |
 | 6 | **Kapsama duyarlı travel ve nesneler arası gizli bağlantı** (Dijkstra/A*, dikilmiş alan cezası) | FER-7 benzeri tasarımda trim ≤ 15, görünür travel yok |
 | 7 | **Öncelik korumalı sıralama optimizasyonu** (en yakın uygun + relocate, yön seçimi) | Jump toplam uzunluğu azalırken kalite metrikleri bozulmuyor |
-| 8 | **Parametrik halat (burgu) bordür nesnesi** | FER-7 bordürü tek nesneyle üretilebiliyor |
+| 8 | **Parametrik halat (burgu) bordür nesnesi** — dikilmiş panellerde doğrulanan ihtiyaç, öncelik yüksek | FER-7 bordürü tek nesneyle üretilebiliyor |
+| 8b | **Ayna kopyası:** tasarımı veya seçili nesneleri yatay/dikey yansıtma (sol/sağ ön panel) | Yansıtılmış tasarım aynı metrikleri veriyor; satin yönü ve giriş/çıkış doğru |
 | 9 | **Büyük tasarım / çoklu kasnak** (bölme ve hizalama işaretleri) veya büyük çerçeve profili | 288×505 mm iş seçilen makineye göre dikilebiliyor |
 | 10 | Dolu konturdan otomatik kolon önerisi (medial/triangulation, confidence) | Düşük güvende kullanıcıya soruyor; yanlış sessiz satin yok |
 | 11 | Ek formatlar (PES/JEF), EWA/Ink/Stitch karşılaştırma adaptörleri | Aynı girdide yan yana metrik raporu |
