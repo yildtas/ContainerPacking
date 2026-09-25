@@ -33,7 +33,15 @@ public sealed class ProjectService
     private readonly GenerationCache _cache;
     private readonly ObjectGenerator _generator = new();
 
-    public ProjectService(GenerationCache? cache = null) => _cache = cache ?? new GenerationCache();
+    private readonly StitchProfileStore _profiles;
+
+    public ProjectService(GenerationCache? cache = null, StitchProfileStore? profiles = null)
+    {
+        _cache = cache ?? new GenerationCache();
+        _profiles = profiles ?? new StitchProfileStore();
+    }
+
+    public StitchProfileStore Profiles => _profiles;
 
     public GenerationCache Cache => _cache;
 
@@ -165,9 +173,9 @@ public sealed class ProjectService
             .FirstOrDefault() ?? HoopPresets.All.MaxBy(h => h.WidthMm * h.HeightMm)!;
     }
 
-    private static StitchProfile ResolveProfile(string? id) =>
+    private StitchProfile ResolveProfile(string? id) =>
         id is null ? StitchProfile.Standard
-            : StitchProfile.Find(id) ?? throw new DesignValidationException($"Unknown stitch profile '{id}'.");
+            : _profiles.Find(id) ?? throw new DesignValidationException($"Unknown stitch profile '{id}'.");
 
     public Design Undo(Guid projectId) => Session(projectId).Undo();
     public Design Redo(Guid projectId) => Session(projectId).Redo();

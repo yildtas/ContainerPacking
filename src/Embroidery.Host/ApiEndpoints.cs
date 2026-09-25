@@ -27,11 +27,14 @@ public static class ApiEndpoints
     {
         app.MapGet("/api/session", (LocalSecurity security) => Results.Ok(new { token = security.Token }));
 
-        app.MapGet("/api/profiles", () => Results.Ok(new
+        app.MapGet("/api/profiles", (StitchProfileStore store) => Results.Ok(new
         {
-            stitch = StitchProfile.BuiltIn,
+            stitch = store.All,
             hoops = HoopPresets.All,
         }));
+
+        // Saves a user profile (e.g. values chosen from the calibration sew-out).
+        app.MapPost("/api/profiles", (StitchProfile profile, StitchProfileStore store) => Results.Ok(store.Save(profile)));
 
         var api = app.MapGroup("/api/projects");
 

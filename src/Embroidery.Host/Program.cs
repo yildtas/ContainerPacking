@@ -25,7 +25,9 @@ builder.Services.Configure<JsonOptions>(o =>
     o.SerializerOptions.PropertyNameCaseInsensitive = true;
     foreach (var converter in shared.Converters) o.SerializerOptions.Converters.Add(converter);
 });
-builder.Services.AddSingleton<ProjectService>();
+var profilesPath = builder.Configuration.GetValue("Embroidery:ProfilesPath", Path.Combine(AppContext.BaseDirectory, "profiles"))!;
+builder.Services.AddSingleton(new StitchProfileStore(profilesPath));
+builder.Services.AddSingleton(sp => new ProjectService(profiles: sp.GetRequiredService<StitchProfileStore>()));
 builder.Services.AddSingleton<LocalSecurity>();
 builder.Services.AddProblemDetails();
 
@@ -46,6 +48,7 @@ app.UseExceptionHandler(errors => errors.Run(async context =>
         JsonException => (StatusCodes.Status400BadRequest, "Request body is not valid JSON for this endpoint."),
         BadHttpRequestException e => (e.StatusCode, e.Message),
         InvalidOperationException e => (StatusCodes.Status400BadRequest, e.Message),
+        IOException => (StatusCodes.Status500InternalServerError, "File could not be written."),
         System.IO.InvalidDataException => (StatusCodes.Status400BadRequest, "File is not a valid project package."),
         OperationCanceledException => (499, "Request cancelled."),
         _ => (StatusCodes.Status500InternalServerError, "Unexpected error."),

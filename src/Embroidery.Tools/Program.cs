@@ -13,11 +13,14 @@ using Embroidery.Machine;
 // Usage is printed when arguments are missing.
 
 const string Usage = """
-    embroidery convert <in.svg> <out.dst> [--width mm] [--profile standard|glossy-satin|metallic] [--mirror h|v] [--hoop WxH]
+    embroidery convert <in.svg> <out.dst> [--width mm] [--profile id] [--profiles dir] [--mirror h|v] [--hoop WxH]
                        [--report r.json] [--preview p.svg] [--fabric #RRGGBB]
     embroidery analyze <in.dst> [--report r.json] [--preview p.svg] [--fabric #RRGGBB] [--thread #RRGGBB]
     embroidery compare <reference.dst> <candidate.dst|candidate.svg>
     embroidery calibration <out-dir>
+    embroidery profile list [--profiles dir]
+    embroidery profile create <id> <name> [--from id] [--satin-spacing mm] [--satin-pull mm] [--tatami-row mm]
+                       [--tatami-length mm] [--tatami-pull mm] [--run-length mm] [--rope-spacing mm] [--profiles dir]
     """;
 
 try
@@ -28,6 +31,8 @@ try
         "analyze" when args.Length >= 2 => Analyze(args[1], Options(args, 2)),
         "compare" when args.Length >= 3 => Compare(args[1], args[2]),
         "calibration" when args.Length >= 2 => Calibration(args[1]),
+        "profile" when args.Length >= 2 && args[1] == "list" => ProfileList(Options(args, 2)),
+        "profile" when args.Length >= 4 && args[1] == "create" => ProfileCreate(args[2], args[3], Options(args, 4)),
         _ => Fail(Usage),
     };
 }
@@ -36,9 +41,48 @@ catch (Exception ex) when (ex is IOException or FormatException or DesignValidat
     return Fail(ex.Message);
 }
 
+static StitchProfileStore Store(Dictionary<string, string> options) =>
+    new(options.GetValueOrDefault("profiles", "profiles"));
+
+static int ProfileList(Dictionary<string, string> options)
+{
+    foreach (var p in Store(options).All)
+    {
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{p.Id,-16} {p.Name,-28} satin {p.SatinSpacingMm:0.00}/{p.SatinPullMm:0.00}  tatami {p.TatamiRowSpacingMm:0.00}/{p.TatamiStitchLengthMm:0.0}/{p.TatamiPullMm:0.00}  run {p.RunStitchLengthMm:0.0}  rope {p.RopeSpacingMm:0.00}"));
+    }
+
+    return 0;
+}
+
+static int ProfileCreate(string id, string name, Dictionary<string, string> options)
+{
+    var store = Store(options);
+    var baseProfile = store.Find(options.GetValueOrDefault("from", "standard"))
+        ?? throw new ArgumentException($"Unknown base profile '{options["from"]}'.");
+    double Get(string key, double fallback) =>
+        options.TryGetValue(key, out var v) ? double.Parse(v, CultureInfo.InvariantCulture) : fallback;
+    var profile = baseProfile with
+    {
+        Id = id,
+        Name = name,
+        Description = options.GetValueOrDefault("description", $"Kalibrasyondan türetildi ({DateTime.Now:yyyy-MM-dd})."),
+        SatinSpacingMm = Get("satin-spacing", baseProfile.SatinSpacingMm),
+        SatinPullMm = Get("satin-pull", baseProfile.SatinPullMm),
+        TatamiRowSpacingMm = Get("tatami-row", baseProfile.TatamiRowSpacingMm),
+        TatamiStitchLengthMm = Get("tatami-length", baseProfile.TatamiStitchLengthMm),
+        TatamiPullMm = Get("tatami-pull", baseProfile.TatamiPullMm),
+        RunStitchLengthMm = Get("run-length", baseProfile.RunStitchLengthMm),
+        RopeSpacingMm = Get("rope-spacing", baseProfile.RopeSpacingMm),
+    };
+    store.Save(profile);
+    Console.WriteLine($"Saved profile '{id}' to {Path.GetFullPath(options.GetValueOrDefault("profiles", "profiles"))}.");
+    return 0;
+}
+
 static int Convert(string input, string output, Dictionary<string, string> options)
 {
-    var service = new ProjectService();
+    var service = new ProjectService(profiles: Store(options));
     double? width = options.TryGetValue("width", out var w) ? double.Parse(w, CultureInfo.InvariantCulture) : null;
     var imported = service.ImportSvg(Path.GetFileName(input), File.ReadAllText(input), new SvgImportOptions { TargetWidthMm = width },
         options.GetValueOrDefault("profile"));
