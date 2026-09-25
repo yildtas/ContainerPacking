@@ -26,6 +26,21 @@ export function App() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1000);
   const [showJumps, setShowJumps] = useState(true);
+  const [fabric, setFabric] = useState(() => {
+    try {
+      return localStorage.getItem("fabricColor") ?? "#f4f1ea";
+    } catch {
+      return "#f4f1ea";
+    }
+  });
+  const changeFabric = (color: string) => {
+    setFabric(color);
+    try {
+      localStorage.setItem("fabricColor", color);
+    } catch {
+      /* per-viewer convenience only */
+    }
+  };
   const [targetWidth, setTargetWidth] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
@@ -262,6 +277,7 @@ export function App() {
           selectedId={selectedId}
           progress={progress}
           showJumps={showJumps}
+          background={fabric}
           onSelect={setSelectedId}
         />
         <div className="stage-footer">
@@ -276,6 +292,9 @@ export function App() {
           />
           <label className="field-check inline">
             <input type="checkbox" checked={showJumps} onChange={(e) => setShowJumps(e.target.checked)} /> Jump'ları göster
+          </label>
+          <label className="field-check inline" title="Önizleme zemini">
+            <input className="fabric-input" type="color" value={fabric} onChange={(e) => changeFabric(e.target.value)} /> Kumaş
           </label>
         </div>
       </main>

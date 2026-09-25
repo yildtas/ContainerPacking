@@ -19,7 +19,11 @@ public enum ShortStitchMode
 
 public sealed record SatinParameters
 {
-    /// <summary>Distance between consecutive zig-zag penetrations along the column.</summary>
+    /// <summary>
+    /// Distance between consecutive penetrations on the same rail, measured on whichever
+    /// (compensated) rail advances further — the outside of a curve. Threads crossing the
+    /// column are therefore <c>SpacingMm / 2</c> apart. Reference: FER-7 uses ≈0.30 mm.
+    /// </summary>
     public double SpacingMm { get; init; } = 0.4;
 
     /// <summary>Total outward widening of each throw (split half per side).</summary>

@@ -2,15 +2,16 @@ using Embroidery.Core.Diagnostics;
 using Embroidery.Core.Objects;
 using Embroidery.Core.Primitives;
 using Embroidery.Core.StitchPlan;
-using Embroidery.Geometry;
 
 namespace Embroidery.StitchEngine.Generators;
 
 /// <summary>
-/// Satin column between two rails. Rails are matched by normalised arc length; the
-/// penetration count follows the longer rail so the outside of a curve gets no gaps.
+/// Satin column generator. The column is first resolved into a <see cref="SatinLadder"/>
+/// (from rails+rungs or centre line+width); pull compensation widens the ladder, and throws are
+/// then placed at equal steps of the compensated outer-rail advance, so the outside of a curve
+/// gets the requested density and the inside gets short stitches instead of pile-ups.
 /// Entry candidate 1 sews the column from its far end.
-/// Codes: SAT001 invalid rails, SAT002 rail direction fixed, SAT003 very wide column.
+/// Codes: SAT001–SAT002, SAT004–SAT005 (see <see cref="SatinLadder"/>), SAT003 very wide column.
 /// </summary>
 public sealed class SatinGenerator : IStitchGenerator<SatinObject>
 {
@@ -19,41 +20,21 @@ public sealed class SatinGenerator : IStitchGenerator<SatinObject>
 
     public GenerationResult<LogicalStitchBlock> Generate(SatinObject item, GenerationContext context, CancellationToken ct = default)
     {
-        var diagnostics = new List<Diagnostic>();
-        var empty = new LogicalStitchBlock(BlockKind.Object, item.Id, item.ThreadIndex, []);
-        if (item.RailA.Count < 2 || item.RailB.Count < 2)
+        var built = SatinLadder.Build(item);
+        var diagnostics = new List<Diagnostic>(built.Diagnostics);
+        if (built.Value is not { } ladder)
         {
-            diagnostics.Add(Diagnostic.Error("SAT001", "Satin needs two rails with at least two points each.", item.Id));
-            return new(empty, diagnostics);
+            return new(new LogicalStitchBlock(BlockKind.Object, item.Id, item.ThreadIndex, []), diagnostics);
         }
 
-        var railA = new ArcLengthPath(item.RailA);
-        var railB = new ArcLengthPath(item.RailB);
-        if (railA.Length < 1e-6 || railB.Length < 1e-6)
-        {
-            diagnostics.Add(Diagnostic.Error("SAT001", "Satin rails must have non-zero length.", item.Id));
-            return new(empty, diagnostics);
-        }
-
-        var straight = Vec2.Distance(railA.Start, railB.Start) + Vec2.Distance(railA.End, railB.End);
-        var crossed = Vec2.Distance(railA.Start, railB.End) + Vec2.Distance(railA.End, railB.Start);
-        if (crossed < straight)
-        {
-            railB = railB.Reversed();
-            diagnostics.Add(Diagnostic.Info("SAT002", "Rails ran in opposite directions; rail B was reversed.", item.Id));
-        }
-
-        if (context.EntryCandidate == 1)
-        {
-            railA = railA.Reversed();
-            railB = railB.Reversed();
-        }
+        if (context.EntryCandidate == 1) ladder = ladder.Reversed();
 
         var p = item.Parameters;
         var stitches = new List<LogicalStitch>();
-        AddUnderlay(railA, railB, p.Underlay, stitches);
-        var maxWidth = AddTop(railA, railB, p, stitches);
+        AddUnderlay(ladder, p.Underlay, stitches);
+        AddTop(ladder, p, stitches);
 
+        var maxWidth = ladder.MaxWidth;
         if (maxWidth > TatamiRecommendedAboveMm)
         {
             diagnostics.Add(Diagnostic.Warning("SAT003",
@@ -64,35 +45,26 @@ public sealed class SatinGenerator : IStitchGenerator<SatinObject>
         return new(new LogicalStitchBlock(BlockKind.Object, item.Id, item.ThreadIndex, stitches), diagnostics);
     }
 
-    private static double AddTop(ArcLengthPath railA, ArcLengthPath railB, SatinParameters p, List<LogicalStitch> output)
+    private static void AddTop(SatinLadder baseLadder, SatinParameters p, List<LogicalStitch> output)
     {
+        // Compensate first, then measure density on the compensated rails.
+        var ladder = baseLadder.WithPullCompensation(p.PullCompensationMm);
         var spacing = Math.Max(0.1, p.SpacingMm);
-        var count = Math.Max(1, (int)Math.Ceiling(Math.Max(railA.Length, railB.Length) / spacing));
-
-        // Push compensation: pull the column ends inward along the column.
-        var avg = (railA.Length + railB.Length) / 2;
-        var tPush = Math.Clamp(p.PushCompensationMm / avg, 0, 0.45);
-        var t0 = tPush;
-        var t1 = 1 - tPush;
+        var push = Math.Clamp(p.PushCompensationMm, 0, ladder.Length * 0.45);
+        var s0 = push;
+        var s1 = ladder.Length - push;
+        var count = Math.Max(1, (int)Math.Ceiling((s1 - s0) / spacing - 1e-9));
 
         var pts = new List<Vec2>(2 * (count + 1));
         Vec2? prevA = null, prevB = null;
-        double maxWidth = 0;
         for (var i = 0; i <= count; i++)
         {
-            var t = t0 + (t1 - t0) * i / count;
-            var a = railA.PointAtFraction(t);
-            var b = railB.PointAtFraction(t);
+            var (a, b) = ladder.At(s0 + (s1 - s0) * i / count);
             var dir = (b - a).Normalized();
-            var width = Vec2.Distance(a, b);
-            maxWidth = Math.Max(maxWidth, width);
-
-            // Pull compensation: widen the throw, half on each side.
-            a -= dir * (p.PullCompensationMm / 2);
-            b += dir * (p.PullCompensationMm / 2);
             var w = Vec2.Distance(a, b);
 
-            // Short stitches: on the inside of tight curves every other penetration moves inward.
+            // Short stitches: where one rail barely moves (inside of a curve), every other
+            // penetration on that rail is pulled into the column to avoid a pile-up.
             if (p.ShortStitch == ShortStitchMode.InnerOnly && i % 2 == 1)
             {
                 if (prevA is { } pa && Vec2.Distance(pa, a) < p.ShortStitchThresholdMm) a += dir * (w * p.ShortStitchFraction);
@@ -102,11 +74,11 @@ public sealed class SatinGenerator : IStitchGenerator<SatinObject>
             prevA = a;
             prevB = b;
             pts.Add(a);
-            pts.Add(b);
+            // At a pointed tip both rails meet: one penetration, not a zero-length throw.
+            if (Vec2.Distance(a, b) >= 0.05) pts.Add(b);
         }
 
         AppendWithSplits(pts, p.MaxWidthMm, StitchLayer.Top, output);
-        return maxWidth;
     }
 
     /// <summary>
@@ -140,24 +112,26 @@ public sealed class SatinGenerator : IStitchGenerator<SatinObject>
     }
 
     /// <summary>
-    /// Underlay layers are arranged so that each one ends where the column starts, and the
-    /// top stitching then runs start → end without a travel.
+    /// Underlay is built from the uncompensated ladder (support geometry, not the widened top).
+    /// Layers are arranged so each one ends where the column starts, and the top stitching then
+    /// runs start → end without a travel. A layer that does not fit a narrow column is skipped.
     /// </summary>
-    private static void AddUnderlay(ArcLengthPath railA, ArcLengthPath railB, SatinUnderlay u, List<LogicalStitch> output)
+    private static void AddUnderlay(SatinLadder ladder, SatinUnderlay u, List<LogicalStitch> output)
     {
-        var samples = Math.Max(2, (int)Math.Ceiling(Math.Max(railA.Length, railB.Length) / 0.5));
-        Vec2 Inset(ArcLengthPath from, ArcLengthPath to, double t, double inset)
+        var samples = Math.Max(2, (int)Math.Ceiling(ladder.Length / 0.5));
+
+        Vec2 Inset(double s, bool sideA)
         {
-            var a = from.PointAtFraction(t);
-            var b = to.PointAtFraction(t);
+            var (a, b) = ladder.At(s);
             var w = Vec2.Distance(a, b);
-            return w <= 2 * inset ? Vec2.Lerp(a, b, 0.5) : a + (b - a).Normalized() * inset;
+            if (w <= 2 * u.EdgeInsetMm) return Vec2.Lerp(a, b, 0.5);
+            return sideA ? a + (b - a).Normalized() * u.EdgeInsetMm : b + (a - b).Normalized() * u.EdgeInsetMm;
         }
 
         List<Vec2> Line(Func<double, Vec2> f)
         {
             var list = new List<Vec2>(samples + 1);
-            for (var i = 0; i <= samples; i++) list.Add(f((double)i / samples));
+            for (var i = 0; i <= samples; i++) list.Add(f(ladder.Length * i / samples));
             return list;
         }
 
@@ -171,40 +145,41 @@ public sealed class SatinGenerator : IStitchGenerator<SatinObject>
             }
         }
 
+        var width = ladder.MaxWidth;
         if (u.CenterWalk)
         {
-            var center = Line(t => Vec2.Lerp(railA.PointAtFraction(t), railB.PointAtFraction(t), 0.5));
+            var center = Line(s =>
+            {
+                var (a, b) = ladder.At(s);
+                return Vec2.Lerp(a, b, 0.5);
+            });
             Run(center);
             center.Reverse();
             Run(center);
         }
 
-        if (u.EdgeWalk)
+        if (u.EdgeWalk && width > 2 * u.EdgeInsetMm + 0.3)
         {
-            var edgeA = Line(t => Inset(railA, railB, t, u.EdgeInsetMm));
-            var edgeB = Line(t => Inset(railB, railA, t, u.EdgeInsetMm));
+            var edgeA = Line(s => Inset(s, true));
+            var edgeB = Line(s => Inset(s, false));
             edgeB.Reverse();
             Run(edgeA);
             Run(edgeB);
         }
 
-        if (u.ZigZag)
+        if (u.ZigZag && width > 2 * u.EdgeInsetMm + 0.3)
         {
-            var len = Math.Max(railA.Length, railB.Length);
-            var n = Math.Max(1, (int)Math.Ceiling(len / Math.Max(0.5, u.ZigZagSpacingMm)));
+            var n = Math.Max(1, (int)Math.Ceiling(ladder.Length / Math.Max(0.5, u.ZigZagSpacingMm)));
             // Forward pass then a half-phase-shifted return pass, ending at the column start.
             for (var i = 0; i <= n; i++)
             {
-                var t = (double)i / n;
-                var pt = i % 2 == 0 ? Inset(railA, railB, t, u.EdgeInsetMm) : Inset(railB, railA, t, u.EdgeInsetMm);
-                output.Add(new(pt, StitchCommand.Stitch, StitchLayer.Underlay));
+                output.Add(new(Inset(ladder.Length * i / n, i % 2 == 0), StitchCommand.Stitch, StitchLayer.Underlay));
             }
 
             for (var i = n; i >= 0; i--)
             {
-                var t = Math.Max(0, (i - 0.5) / n);
-                var pt = i % 2 == 0 ? Inset(railB, railA, t, u.EdgeInsetMm) : Inset(railA, railB, t, u.EdgeInsetMm);
-                output.Add(new(pt, StitchCommand.Stitch, StitchLayer.Underlay));
+                var s = Math.Max(0, (i - 0.5) / n) * ladder.Length;
+                output.Add(new(Inset(s, i % 2 != 0), StitchCommand.Stitch, StitchLayer.Underlay));
             }
         }
     }

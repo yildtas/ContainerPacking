@@ -510,3 +510,16 @@ legend {
     margin-left: 0;
   }
 }
+
+.hint {
+  color: var(--muted);
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.fabric-input {
+  width: 32px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--border);
+}

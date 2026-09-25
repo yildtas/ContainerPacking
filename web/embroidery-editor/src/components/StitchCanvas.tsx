@@ -10,6 +10,8 @@ interface Props {
   /** Number of segments to draw (simulator position). */
   progress: number;
   showJumps: boolean;
+  /** Fabric colour behind the stitches. */
+  background: string;
   onSelect: (objectId: string | null) => void;
 }
 
@@ -34,13 +36,13 @@ function objectOutlines(o: EmbroideryObject): Vec2[][] {
     case "run":
       return [o.path];
     case "satin":
-      return [o.railA, o.railB];
+      return o.source === "stroke" ? [o.centerline] : [o.railA, o.railB, ...o.rungs.map((r) => [r.a, r.b])];
     case "tatami":
       return o.region.rings.map((r) => [...r, r[0]]);
   }
 }
 
-export function StitchCanvas({ sim, colors, design, selectedId, progress, showJumps, onSelect }: Props) {
+export function StitchCanvas({ sim, colors, design, selectedId, progress, showJumps, background, onSelect }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
@@ -86,7 +88,7 @@ export function StitchCanvas({ sim, colors, design, selectedId, progress, showJu
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = getComputedStyle(canvas).getPropertyValue("--canvas-bg").trim() || "#f4f1ea";
+    ctx.fillStyle = background;
     ctx.fillRect(0, 0, size.w, size.h);
     if (!sim || !design) return;
 
@@ -183,7 +185,7 @@ export function StitchCanvas({ sim, colors, design, selectedId, progress, showJu
       ctx.stroke();
       ctx.restore();
     }
-  }, [sim, colors, design, selectedId, progress, showJumps, view, size]);
+  }, [sim, colors, design, selectedId, progress, showJumps, background, view, size]);
 
   const toMm = (e: { clientX: number; clientY: number }) => {
     const rect = canvasRef.current!.getBoundingClientRect();

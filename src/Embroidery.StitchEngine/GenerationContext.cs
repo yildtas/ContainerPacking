@@ -12,7 +12,7 @@ public static class StitchEngineInfo
     /// Bump whenever any generator's output changes for the same input; cached blocks
     /// produced by another version are discarded.
     /// </summary>
-    public const string GeneratorVersion = "1.2.0";
+    public const string GeneratorVersion = "1.3.0";
 }
 
 /// <summary>
@@ -76,6 +76,7 @@ public static class EntryCandidates
         RunObject r when r.Path.Count > 0 => r.Path[0].ApproximatelyEquals(r.Path[^1], 1e-6)
             ? [r.Path[0]]
             : [r.Path[0], r.Path[^1]],
+        SatinObject { Source: SatinSource.Stroke } s when s.Centerline.Count > 0 => [s.Centerline[0], s.Centerline[^1]],
         SatinObject s when s.RailA.Count > 0 && s.RailB.Count > 0 =>
             [Vec2.Lerp(s.RailA[0], s.RailB[0], 0.5), Vec2.Lerp(s.RailA[^1], s.RailB[^1], 0.5)],
         TatamiObject t when !t.Bounds.IsEmpty =>

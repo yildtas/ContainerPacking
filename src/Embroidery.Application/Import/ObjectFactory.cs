@@ -1,16 +1,30 @@
+using System.Globalization;
 using Embroidery.Core.Diagnostics;
 using Embroidery.Core.Model;
 using Embroidery.Core.Objects;
 using Embroidery.Core.Primitives;
 using Embroidery.Geometry;
 using Embroidery.Geometry.Svg;
+using Embroidery.StitchEngine.Generators;
 
 namespace Embroidery.Application.Import;
 
 /// <summary>
-/// Turns imported artwork into editable embroidery objects with sensible defaults:
-/// filled shapes become Tatami, wide strokes Satin, thin strokes Run.
-/// Codes: IMP001 shape skipped.
+/// Turns imported artwork into editable embroidery objects.
+///
+/// Vector delivery convention (see docs/ARCHITECTURE.md §7):
+/// <list type="bullet">
+/// <item><c>data-stitch="run|satin|tatami"</c> on an element fixes its stitch type.
+/// Ink/Stitch's <c>inkstitch:satin_column="True"</c> is read as <c>satin</c>.</item>
+/// <item>A satin with two or more subpaths uses the Ink/Stitch rails convention: the two longest
+/// subpaths are the rails, every other subpath is a rung.</item>
+/// <item>A satin with one subpath is a centre line; its width is the stroke width
+/// (or <c>data-width</c> in mm), tapers come from <c>data-taper</c>, <c>data-taper-start</c>,
+/// <c>data-taper-end</c> (mm).</item>
+/// <item>Without a hint: filled shapes become Tatami, strokes of at least
+/// <see cref="SatinStrokeMinMm"/> satin centre lines, thinner strokes Run.</item>
+/// </list>
+/// Codes: IMP001 shape skipped, IMP002 rails guessed from an outline, IMP003 unknown hint.
 /// </summary>
 public static class ObjectFactory
 {
@@ -35,46 +49,136 @@ public static class ObjectFactory
         var n = 0;
         foreach (var shape in artwork.Shapes)
         {
-            var baseName = shape.ElementId ?? $"Şekil {++n}";
-            if (shape.FillColor is { } fill)
+            var name = shape.ElementId ?? $"Şekil {++n}";
+            var color = shape.FillColor ?? shape.StrokeColor ?? "#000000";
+            var hint = StitchHint(shape, name, diagnostics);
+            var created = hint switch
             {
-                var rings = shape.Subpaths.Where(s => s.Points.Count >= 3).Select(s => s.Points).ToArray();
-                var region = new Region(rings, shape.FillRule);
-                if (rings.Length > 0 && PolygonOps.Area(region) >= 0.05)
-                {
-                    objects.Add(new TatamiObject { Id = Guid.NewGuid(), Name = baseName, ThreadIndex = ThreadFor(fill), Region = region });
-                }
-                else
-                {
-                    diagnostics.Add(Diagnostic.Info("IMP001", $"'{baseName}' has no fillable area and was skipped."));
-                }
-            }
-
-            if (shape.StrokeColor is { } stroke)
-            {
-                var thread = ThreadFor(stroke);
-                var i = 0;
-                foreach (var sub in shape.Subpaths)
-                {
-                    var path = sub.Closed ? sub.Points.Append(sub.Points[0]).ToArray() : sub.Points.ToArray();
-                    if (path.Length < 2) continue;
-                    var name = shape.Subpaths.Count > 1 ? $"{baseName} kontur {++i}" : $"{baseName} kontur";
-                    if (shape.StrokeWidthMm >= SatinStrokeMinMm)
-                    {
-                        var (a, b) = ObjectConverter.RailsAround(path, shape.StrokeWidthMm);
-                        objects.Add(new SatinObject { Id = Guid.NewGuid(), Name = name, ThreadIndex = thread, RailA = a, RailB = b });
-                    }
-                    else
-                    {
-                        objects.Add(new RunObject { Id = Guid.NewGuid(), Name = name, ThreadIndex = thread, Path = path });
-                    }
-                }
-            }
+                StitchType.Satin => Satin(shape, name, ThreadFor(color), diagnostics),
+                StitchType.Run => Runs(shape, name, ThreadFor(shape.StrokeColor ?? color)),
+                StitchType.Tatami => Tatami(shape, name, ThreadFor(color), diagnostics),
+                _ => Default(shape, name, ThreadFor, diagnostics),
+            };
+            objects.AddRange(created);
         }
 
         if (threads.Count == 0) threads.Add(new EmbroideryThread("İplik 1", "#000000"));
         return (threads, objects, diagnostics);
     }
+
+    private static StitchType? StitchHint(ImportedShape shape, string name, List<Diagnostic> diagnostics)
+    {
+        if (shape.Hints.TryGetValue("satin_column", out var sc) && sc.Equals("true", StringComparison.OrdinalIgnoreCase)) return StitchType.Satin;
+        if (!shape.Hints.TryGetValue("stitch", out var value)) return null;
+        switch (value.ToLowerInvariant())
+        {
+            case "run": return StitchType.Run;
+            case "satin": return StitchType.Satin;
+            case "tatami" or "fill": return StitchType.Tatami;
+            default:
+                diagnostics.Add(Diagnostic.Warning("IMP003", $"'{name}': unknown data-stitch=\"{value}\"; the default type was used."));
+                return null;
+        }
+    }
+
+    private static IEnumerable<EmbroideryObject> Default(ImportedShape shape, string name, Func<string, int> threadFor, List<Diagnostic> diagnostics)
+    {
+        var result = new List<EmbroideryObject>();
+        if (shape.FillColor is { } fill) result.AddRange(Tatami(shape, name, threadFor(fill), diagnostics));
+        if (shape.StrokeColor is { } stroke)
+        {
+            var outlineName = shape.FillColor is null ? name : $"{name} kontur";
+            result.AddRange(shape.StrokeWidthMm >= SatinStrokeMinMm
+                ? Satin(shape with { FillColor = null }, outlineName, threadFor(stroke), diagnostics)
+                : Runs(shape, outlineName, threadFor(stroke)));
+        }
+
+        return result;
+    }
+
+    private static IEnumerable<EmbroideryObject> Tatami(ImportedShape shape, string name, int thread, List<Diagnostic> diagnostics)
+    {
+        Region region;
+        if (shape.FillColor is null)
+        {
+            // An explicit fill on a stroke fills the area the stroke covers.
+            var rings = shape.Subpaths.SelectMany(sp => PolygonOps.BufferPath(ClosedPath(sp), Math.Max(0.5, shape.StrokeWidthMm)).Rings).ToArray();
+            region = new Region(rings, FillRule.NonZero);
+        }
+        else
+        {
+            region = new Region(shape.Subpaths.Where(s => s.Points.Count >= 3).Select(s => s.Points).ToArray(), shape.FillRule);
+        }
+
+        if (region.Rings.Count == 0 || PolygonOps.Area(region) < 0.05)
+        {
+            diagnostics.Add(Diagnostic.Info("IMP001", $"'{name}' has no fillable area and was skipped."));
+            return [];
+        }
+
+        return [new TatamiObject { Id = Guid.NewGuid(), Name = name, ThreadIndex = thread, Region = region }];
+    }
+
+    private static IEnumerable<EmbroideryObject> Runs(ImportedShape shape, string name, int thread)
+    {
+        var paths = shape.Subpaths.Select(ClosedPath).Where(p => p.Length >= 2).ToList();
+        return paths.Select((path, i) => (EmbroideryObject)new RunObject
+        {
+            Id = Guid.NewGuid(),
+            Name = paths.Count > 1 ? $"{name} {i + 1}" : name,
+            ThreadIndex = thread,
+            Path = path,
+        });
+    }
+
+    private static IEnumerable<EmbroideryObject> Satin(ImportedShape shape, string name, int thread, List<Diagnostic> diagnostics)
+    {
+        var subpaths = shape.Subpaths.Where(s => s.Points.Count >= 2).ToList();
+        if (subpaths.Count == 0) return [];
+
+        if (subpaths.Count >= 2 && shape.FillColor is null)
+        {
+            // Ink/Stitch convention: the two longest subpaths are rails, the others rungs.
+            var ordered = subpaths.OrderByDescending(s => new ArcLengthPath(s.Points).Length).ToList();
+            var rungs = ordered.Skip(2).Select(r => new Rung(r.Points[0], r.Points[^1])).ToArray();
+            return [new SatinObject
+            {
+                Id = Guid.NewGuid(), Name = name, ThreadIndex = thread, Source = SatinSource.Rails,
+                RailA = ordered[0].Points, RailB = ordered[1].Points, Rungs = rungs,
+            }];
+        }
+
+        if (shape.FillColor is not null)
+        {
+            // A filled outline marked as satin: split it into two rails at its extremes.
+            var ring = subpaths.MaxBy(s => Math.Abs(PolygonOps.SignedArea(s.Points)))!.Points;
+            var (a, b) = ObjectConverter.SplitRing(ring);
+            diagnostics.Add(Diagnostic.Info("IMP002", $"'{name}': satin rails were guessed from the outline; check them or add rungs."));
+            return [new SatinObject { Id = Guid.NewGuid(), Name = name, ThreadIndex = thread, Source = SatinSource.Rails, RailA = a, RailB = b }];
+        }
+
+        var width = Number(shape.Hints, "width") ?? (shape.StrokeWidthMm > 0 ? shape.StrokeWidthMm : 4.0);
+        var taper = Number(shape.Hints, "taper") ?? 0;
+        return subpaths.Select((sp, i) => (EmbroideryObject)new SatinObject
+        {
+            Id = Guid.NewGuid(),
+            Name = subpaths.Count > 1 ? $"{name} {i + 1}" : name,
+            ThreadIndex = thread,
+            Source = SatinSource.Stroke,
+            Centerline = ClosedPath(sp),
+            WidthMm = width,
+            StartTaperMm = Number(shape.Hints, "taper-start") ?? taper,
+            EndTaperMm = Number(shape.Hints, "taper-end") ?? taper,
+        });
+    }
+
+    private static Vec2[] ClosedPath(FlatSubpath sp) =>
+        sp.Closed ? sp.Points.Append(sp.Points[0]).ToArray() : sp.Points.ToArray();
+
+    private static double? Number(IReadOnlyDictionary<string, string> hints, string key) =>
+        hints.TryGetValue(key, out var v) && double.TryParse(v.Replace("mm", "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var d) && d >= 0
+            ? d
+            : null;
 }
 
 /// <summary>Converts an object to another stitch type, keeping its geometry as closely as possible.</summary>
@@ -87,12 +191,16 @@ public static class ObjectConverter
         if (item.StitchType == target) return item;
         return (item, target) switch
         {
-            (RunObject r, StitchType.Satin) => Satin(item, RailsAround(r.Path, DefaultSatinWidthMm)),
+            (RunObject r, StitchType.Satin) => new SatinObject
+            {
+                Id = item.Id, Name = item.Name, ThreadIndex = item.ThreadIndex, Visible = item.Visible,
+                Source = SatinSource.Stroke, Centerline = r.Path, WidthMm = DefaultSatinWidthMm,
+            },
             (RunObject r, StitchType.Tatami) => Tatami(item, RegionFromPath(r.Path)),
             (SatinObject s, StitchType.Run) => Run(item, Centerline(s)),
-            (SatinObject s, StitchType.Tatami) => Tatami(item, [s.RailA.Concat(s.RailB.Reverse()).ToArray()]),
+            (SatinObject s, StitchType.Tatami) => Tatami(item, [Outline(s)]),
             (TatamiObject t, StitchType.Run) => Run(item, OuterRingPath(t.Region)),
-            (TatamiObject t, StitchType.Satin) => Satin(item, SplitRing(LargestRing(t.Region))),
+            (TatamiObject t, StitchType.Satin) => RailsSatin(item, SplitRing(LargestRing(t.Region))),
             _ => throw new InvalidOperationException($"Cannot convert {item.StitchType} to {target}."),
         };
     }
@@ -100,8 +208,8 @@ public static class ObjectConverter
     private static RunObject Run(EmbroideryObject from, IReadOnlyList<Vec2> path) =>
         new() { Id = from.Id, Name = from.Name, ThreadIndex = from.ThreadIndex, Visible = from.Visible, Path = path };
 
-    private static SatinObject Satin(EmbroideryObject from, (IReadOnlyList<Vec2> A, IReadOnlyList<Vec2> B) rails) =>
-        new() { Id = from.Id, Name = from.Name, ThreadIndex = from.ThreadIndex, Visible = from.Visible, RailA = rails.A, RailB = rails.B };
+    private static SatinObject RailsSatin(EmbroideryObject from, (IReadOnlyList<Vec2> A, IReadOnlyList<Vec2> B) rails) =>
+        new() { Id = from.Id, Name = from.Name, ThreadIndex = from.ThreadIndex, Visible = from.Visible, Source = SatinSource.Rails, RailA = rails.A, RailB = rails.B };
 
     private static TatamiObject Tatami(EmbroideryObject from, IReadOnlyList<Vec2>[] rings) =>
         new() { Id = from.Id, Name = from.Name, ThreadIndex = from.ThreadIndex, Visible = from.Visible, Region = new Region(rings) };
@@ -114,48 +222,23 @@ public static class ObjectConverter
         return PolygonOps.BufferPath(path, DefaultSatinWidthMm).Rings.ToArray();
     }
 
-    /// <summary>Two rails offset ±width/2 from a centre path (miter joins, clamped at sharp corners).</summary>
-    public static (IReadOnlyList<Vec2> A, IReadOnlyList<Vec2> B) RailsAround(IReadOnlyList<Vec2> path, double width)
-    {
-        var h = width / 2;
-        var a = new Vec2[path.Count];
-        var b = new Vec2[path.Count];
-        var closed = path.Count > 2 && path[0].ApproximatelyEquals(path[^1], 1e-6);
-        for (var i = 0; i < path.Count; i++)
-        {
-            Vec2 prev, next;
-            if (closed)
-            {
-                prev = i == 0 ? path[^2] : path[i - 1];
-                next = i == path.Count - 1 ? path[1] : path[i + 1];
-            }
-            else
-            {
-                prev = i == 0 ? path[i] : path[i - 1];
-                next = i == path.Count - 1 ? path[i] : path[i + 1];
-            }
-
-            var d1 = (path[i] - prev).Normalized();
-            var d2 = (next - path[i]).Normalized();
-            if (d1 == Vec2.Zero) d1 = d2;
-            if (d2 == Vec2.Zero) d2 = d1;
-            var n1 = d1.Perpendicular;
-            var miter = (n1 + d2.Perpendicular).Normalized();
-            if (miter == Vec2.Zero) miter = n1;
-            var scale = Math.Min(h / Math.Max(0.25, Vec2.Dot(miter, n1)), 2 * h);
-            a[i] = path[i] - miter * scale;
-            b[i] = path[i] + miter * scale;
-        }
-
-        return (a, b);
-    }
-
     private static IReadOnlyList<Vec2> Centerline(SatinObject s)
     {
-        var a = new ArcLengthPath(s.RailA);
-        var b = new ArcLengthPath(s.RailB);
-        var n = Math.Max(2, (int)Math.Ceiling(Math.Max(a.Length, b.Length) / 0.5));
-        return Enumerable.Range(0, n + 1).Select(i => Vec2.Lerp(a.PointAtFraction((double)i / n), b.PointAtFraction((double)i / n), 0.5)).ToArray();
+        if (s.Source == SatinSource.Stroke) return s.Centerline;
+        if (SatinLadder.Build(s).Value is not { } ladder) return [];
+        var n = Math.Max(2, (int)Math.Ceiling(ladder.Length / 0.5));
+        return Enumerable.Range(0, n + 1).Select(i =>
+        {
+            var (a, b) = ladder.At(ladder.Length * i / n);
+            return Vec2.Lerp(a, b, 0.5);
+        }).ToArray();
+    }
+
+    /// <summary>The column's outline: rail A forward, rail B back.</summary>
+    private static IReadOnlyList<Vec2> Outline(SatinObject s)
+    {
+        if (SatinLadder.Build(s).Value is not { } ladder) return [];
+        return ladder.A.Concat(ladder.B.Reverse()).ToArray();
     }
 
     private static IReadOnlyList<Vec2> LargestRing(Region region) =>

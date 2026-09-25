@@ -17,8 +17,20 @@ public static class ParameterValidator
                 Range(r.Parameters.Repeats, 1, 9, "repeats");
                 break;
             case SatinObject s:
-                Points(s.RailA, "rail A");
-                Points(s.RailB, "rail B");
+                if (s.Source == SatinSource.Stroke)
+                {
+                    Points(s.Centerline, "centre line");
+                    Range(s.WidthMm, 0.3, 20, "satin width");
+                    Range(s.StartTaperMm, 0, 500, "start taper");
+                    Range(s.EndTaperMm, 0, 500, "end taper");
+                }
+                else
+                {
+                    Points(s.RailA, "rail A");
+                    Points(s.RailB, "rail B");
+                    Points(s.Rungs.SelectMany(r => new[] { r.A, r.B }).ToArray(), "rungs");
+                }
+
                 var sp = s.Parameters;
                 Range(sp.SpacingMm, 0.15, 5, "satin spacing");
                 Range(sp.PullCompensationMm, -1, 3, "pull compensation");

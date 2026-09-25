@@ -14,7 +14,14 @@ public sealed record ImportedShape(
     string? FillColor,
     string? StrokeColor,
     double StrokeWidthMm,
-    FillRule FillRule);
+    FillRule FillRule)
+{
+    /// <summary>
+    /// Digitizing hints from the element: <c>data-*</c> attributes without the prefix
+    /// (e.g. "stitch", "taper") and Ink/Stitch attributes (e.g. "satin_column"). Keys are lower case.
+    /// </summary>
+    public IReadOnlyDictionary<string, string> Hints { get; init; } = new Dictionary<string, string>();
+}
 
 public sealed record ImportedArtwork(
     double WidthMm,
@@ -198,7 +205,20 @@ public static partial class SvgImporter
             style.Fill,
             style.Stroke,
             style.StrokeWidth * transform.AverageScale,
-            style.FillRule));
+            style.FillRule) { Hints = ReadHints(el) });
+    }
+
+    private static Dictionary<string, string> ReadHints(XElement el)
+    {
+        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var a in el.Attributes())
+        {
+            var local = a.Name.LocalName.ToLowerInvariant();
+            if (a.Name.NamespaceName.Length == 0 && local.StartsWith("data-", StringComparison.Ordinal)) hints[local[5..]] = a.Value.Trim();
+            else if (a.Name.NamespaceName.Contains("inkstitch", StringComparison.OrdinalIgnoreCase)) hints[local] = a.Value.Trim();
+        }
+
+        return hints;
     }
 
     private static string IdSuffix(XElement el) => el.Attribute("id")?.Value is { } id ? $" id=\"{id}\"" : "";

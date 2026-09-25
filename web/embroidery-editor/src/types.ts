@@ -66,10 +66,19 @@ export interface RunObject extends ObjectBase {
   parameters: RunParameters;
 }
 
+export type SatinSource = "rails" | "stroke";
+
 export interface SatinObject extends ObjectBase {
   type: "satin";
+  /** Which geometry is authoritative: rails (+ rungs) or centre line + width. */
+  source: SatinSource;
   railA: Vec2[];
   railB: Vec2[];
+  rungs: { a: Vec2; b: Vec2 }[];
+  centerline: Vec2[];
+  widthMm: number;
+  startTaperMm: number;
+  endTaperMm: number;
   parameters: SatinParameters;
 }
 

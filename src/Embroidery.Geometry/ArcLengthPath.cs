@@ -60,6 +60,28 @@ public sealed class ArcLengthPath
         return (_points[i + 1] - _points[i]).Normalized();
     }
 
+    /// <summary>Arc length of the path point closest to <paramref name="p"/>, and the distance to it.</summary>
+    public (double S, double Distance) Project(Vec2 p)
+    {
+        if (_points.Length == 1) return (0, Vec2.Distance(p, _points[0]));
+        var bestS = 0.0;
+        var bestD = double.PositiveInfinity;
+        for (var i = 0; i < _points.Length - 1; i++)
+        {
+            var a = _points[i];
+            var d = _points[i + 1] - a;
+            var t = d.LengthSquared < 1e-18 ? 0 : Math.Clamp(Vec2.Dot(p - a, d) / d.LengthSquared, 0, 1);
+            var dist = Vec2.Distance(p, a + d * t);
+            if (dist < bestD)
+            {
+                bestD = dist;
+                bestS = _cumulative[i] + t * (_cumulative[i + 1] - _cumulative[i]);
+            }
+        }
+
+        return (bestS, bestD);
+    }
+
     private int SegmentIndex(double s)
     {
         var idx = Array.BinarySearch(_cumulative, s);

@@ -48,18 +48,57 @@ public sealed record RunObject : EmbroideryObject
     public override Bounds Bounds => Bounds.Of(Path);
 }
 
+/// <summary>Which geometry is authoritative for a satin column; the other is derived.</summary>
+public enum SatinSource
+{
+    /// <summary>Two rails (+ optional rungs) drawn by the digitizer. For variable-width parts such as leaves.</summary>
+    Rails,
+
+    /// <summary>A centre line with a width and optional tapered ends. For constant-width scrolls.</summary>
+    Stroke,
+}
+
+/// <summary>A user-drawn line across the column fixing which rail points face each other.</summary>
+public readonly record struct Rung(Vec2 A, Vec2 B);
+
 /// <summary>
-/// A satin column between two rails that run in the same direction. Rungs are
-/// implied by matching the rails by normalised arc length.
+/// A satin column. Exactly one geometry is the source of truth, chosen by <see cref="Source"/>:
+/// rails + rungs, or centre line + width. Editing one never silently rewrites the other.
 /// </summary>
 public sealed record SatinObject : EmbroideryObject
 {
-    public required IReadOnlyList<Vec2> RailA { get; init; }
-    public required IReadOnlyList<Vec2> RailB { get; init; }
+    public SatinSource Source { get; init; } = SatinSource.Rails;
+
+    // Rails source: both rails run in the same direction. Without rungs, points are
+    // matched by normalised arc length; each rung pins a pair of facing points.
+    public IReadOnlyList<Vec2> RailA { get; init; } = [];
+    public IReadOnlyList<Vec2> RailB { get; init; } = [];
+    public IReadOnlyList<Rung> Rungs { get; init; } = [];
+
+    // Stroke source.
+    public IReadOnlyList<Vec2> Centerline { get; init; } = [];
+    public double WidthMm { get; init; } = 4.0;
+
+    /// <summary>Length over which the column widens from a point to full width at its start.</summary>
+    public double StartTaperMm { get; init; }
+
+    public double EndTaperMm { get; init; }
+
     public SatinParameters Parameters { get; init; } = new();
 
     public override StitchType StitchType => StitchType.Satin;
-    public override Bounds Bounds => Bounds.Of(RailA).Include(Bounds.Of(RailB));
+
+    public override Bounds Bounds
+    {
+        get
+        {
+            if (Source == SatinSource.Rails) return Bounds.Of(RailA).Include(Bounds.Of(RailB));
+            var b = Bounds.Of(Centerline);
+            if (b.IsEmpty) return b;
+            var h = WidthMm / 2;
+            return new Bounds(b.MinX - h, b.MinY - h, b.MaxX + h, b.MaxY + h);
+        }
+    }
 }
 
 public sealed record TatamiObject : EmbroideryObject

@@ -70,6 +70,21 @@ function ParameterFields({ item, onChange }: { item: EmbroideryObject; onChange:
       return (
         <>
           <fieldset>
+            <legend>Kolon</legend>
+            <p className="hint">
+              {item.source === "stroke"
+                ? "Orta çizgi + kalınlık"
+                : `İki kenar (rail)${item.rungs.length ? `, ${item.rungs.length} rung` : ""}`}
+            </p>
+            {item.source === "stroke" && (
+              <>
+                <NumberField label="Kalınlık" unit="mm" step={0.1} value={item.widthMm} min={0.3} max={20} onCommit={(v) => onChange({ ...item, widthMm: v })} />
+                <NumberField label="Baş incelmesi" unit="mm" step={0.5} value={item.startTaperMm} min={0} max={500} onCommit={(v) => onChange({ ...item, startTaperMm: v })} />
+                <NumberField label="Son incelmesi" unit="mm" step={0.5} value={item.endTaperMm} min={0} max={500} onCommit={(v) => onChange({ ...item, endTaperMm: v })} />
+              </>
+            )}
+          </fieldset>
+          <fieldset>
             <legend>Satin</legend>
             <NumberField label="Sıklık" unit="mm" step={0.05} value={p.spacingMm} min={0.15} max={5} onCommit={(v) => set({ spacingMm: v })} />
             <NumberField label="Pull comp." unit="mm" step={0.05} value={p.pullCompensationMm} min={-1} max={3} onCommit={(v) => set({ pullCompensationMm: v })} />
