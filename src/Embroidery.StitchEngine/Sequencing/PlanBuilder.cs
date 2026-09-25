@@ -79,10 +79,14 @@ public static class PlanBuilder
             else
             {
                 var gap = Vec2.Distance(exit, first);
-                if (gap > policy.MaxDirectStitchMm && policy.HiddenTravel && ObjectCoverage.Hides(CoverageFrom(index), exit, first))
+                IReadOnlyList<Vec2>? hidden = gap > policy.MaxDirectStitchMm && policy.HiddenTravel
+                    ? HiddenRouter.Route(CoverageFrom(index), exit, first)
+                    : null;
+                if (hidden is not null)
                 {
-                    // Hidden under this and later objects: sew through instead of cutting.
-                    foreach (var q in Generators.RunSampler.Sample([exit, first], 2.5).Skip(1).SkipLast(1))
+                    // Hidden under this and later objects (straight or around uncovered gaps):
+                    // sew through instead of cutting.
+                    foreach (var q in Generators.RunSampler.Sample(hidden, 2.5, 20).Skip(1).SkipLast(1))
                     {
                         connector.Add(new(q, StitchCommand.Travel, StitchLayer.Connector));
                     }

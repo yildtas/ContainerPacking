@@ -19,11 +19,26 @@ public sealed class ObjectCoverage
 
     public bool IsEmpty => _parts.Count == 0;
 
+    public Bounds Bounds => _parts.Aggregate(Bounds.Empty, (b, p) => b.Include(p.Bounds));
+
+    public bool Overlaps(Bounds box)
+    {
+        foreach (var (_, b) in _parts)
+        {
+            if (b.MinX <= box.MaxX && b.MaxX >= box.MinX && b.MinY <= box.MaxY && b.MaxY >= box.MinY) return true;
+        }
+
+        return false;
+    }
+
     public static ObjectCoverage For(EmbroideryObject item)
     {
         var parts = new List<(Region, Bounds)>();
         void Add(Region r)
         {
+            // Coverage only answers "is this point under stitching"; 0.15 mm of outline detail
+            // is irrelevant there and simplifying makes point queries an order of magnitude faster.
+            r = PolygonOps.Simplify(r, 0.15);
             if (r.Rings.Count > 0) parts.Add((r, r.Bounds));
         }
 
@@ -47,6 +62,15 @@ public sealed class ObjectCoverage
         return new ObjectCoverage(parts);
     }
 
+    /// <summary>The coverage regions whose bounds reach <paramref name="box"/>.</summary>
+    public IEnumerable<Region> RegionsOverlapping(Bounds box)
+    {
+        foreach (var (region, b) in _parts)
+        {
+            if (b.MinX <= box.MaxX && b.MaxX >= box.MinX && b.MinY <= box.MaxY && b.MaxY >= box.MinY) yield return region;
+        }
+    }
+
     public bool Contains(Vec2 p)
     {
         foreach (var (region, b) in _parts)
@@ -60,18 +84,20 @@ public sealed class ObjectCoverage
 
     /// <summary>
     /// True when every sample of the segment lies under at least one of the coverages. The first
-    /// and last <paramref name="endSlackMm"/> are exempt: they sit on the edges of the objects
-    /// being connected, not in open fabric.
+    /// <paramref name="endSlackMm"/> (and last <paramref name="endSlackEndMm"/>, same by default)
+    /// are exempt: they sit on the edges of the objects being connected, not in open fabric.
     /// </summary>
-    public static bool Hides(IReadOnlyList<ObjectCoverage> coverages, Vec2 a, Vec2 b, double stepMm = 0.5, double endSlackMm = 1.0)
+    public static bool Hides(IReadOnlyList<ObjectCoverage> coverages, Vec2 a, Vec2 b, double stepMm = 0.5,
+        double endSlackMm = 1.0, double? endSlackEndMm = null)
     {
         if (coverages.Count == 0) return false;
+        var slackEnd = endSlackEndMm ?? endSlackMm;
         var length = Vec2.Distance(a, b);
         var n = Math.Max(2, (int)Math.Ceiling(length / stepMm));
         for (var i = 0; i <= n; i++)
         {
             var d = length * i / n;
-            if (d < endSlackMm || length - d < endSlackMm) continue;
+            if (d < endSlackMm || length - d < slackEnd) continue;
             var p = Vec2.Lerp(a, b, (double)i / n);
             if (!coverages.Any(c => c.Contains(p))) return false;
         }

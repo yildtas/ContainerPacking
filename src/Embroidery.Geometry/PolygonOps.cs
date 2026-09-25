@@ -136,6 +136,16 @@ public static class PolygonOps
         return FromClipper(Clipper.Union(result, Clipper2Lib.FillRule.NonZero));
     }
 
+    /// <summary>
+    /// Removes vertices that deviate less than <paramref name="toleranceMm"/> from the outline
+    /// (Ramer–Douglas–Peucker). For coarse spatial queries, not for stitch geometry.
+    /// </summary>
+    public static Region Simplify(Region region, double toleranceMm)
+    {
+        var simplified = Clipper.RamerDouglasPeucker(ToClipper(region), toleranceMm);
+        return FromClipper(simplified) with { FillRule = region.FillRule };
+    }
+
     /// <summary>The area covered by a stroke of <paramref name="widthMm"/> along an open path (butt ends).</summary>
     public static Region BufferPath(IReadOnlyList<Vec2> path, double widthMm)
     {

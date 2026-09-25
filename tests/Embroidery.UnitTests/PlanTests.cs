@@ -102,6 +102,36 @@ public class PlanTests
         Assert.Contains(StitchCommand.Trim, ConnectorCommands(Build(design), 1));
     }
 
+    private static TatamiObject UShape(double depth) => new()
+    {
+        Id = Guid.NewGuid(), Name = "u", ThreadIndex = 0,
+        // A band around a notch: the straight line y=0 from x=10 to x=30 crosses the open notch.
+        Region = new Region([new Vec2[]
+        {
+            new(5, -3), new(12, -3), new(12, depth), new(28, depth), new(28, -3), new(35, -3),
+            new(35, depth + 6), new(5, depth + 6),
+        }]),
+    };
+
+    [Fact]
+    public void Hidden_travel_goes_around_an_uncovered_gap()
+    {
+        var cover = UShape(depth: 8);
+        var plan = Build(DesignOf(Line(0, 0, 10, 0), Line(30, 0, 40, 0), cover));
+        var link = plan.Blocks.Where(b => b.Kind == BlockKind.Connector).ElementAt(1).Stitches;
+        Assert.All(link, s => Assert.Equal(StitchCommand.Travel, s.Command));
+        Assert.Contains(link, s => s.Position.Y > 7); // went down around the notch
+        var coverage = Embroidery.StitchEngine.Sequencing.ObjectCoverage.For(cover);
+        Assert.All(link, s => Assert.True(coverage.Contains(s.Position), $"{s.Position} is not covered"));
+    }
+
+    [Fact]
+    public void Too_long_a_detour_is_cut_instead()
+    {
+        var plan = Build(DesignOf(Line(0, 0, 10, 0), Line(30, 0, 40, 0), UShape(depth: 60)));
+        Assert.Contains(StitchCommand.Trim, ConnectorCommands(plan, 1));
+    }
+
     [Fact]
     public void Quality_pass_flags_designs_larger_than_the_hoop()
     {
