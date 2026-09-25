@@ -21,10 +21,12 @@ namespace Embroidery.Application.Import;
 /// <item>A satin with one subpath is a centre line; its width is the stroke width
 /// (or <c>data-width</c> in mm), tapers come from <c>data-taper</c>, <c>data-taper-start</c>,
 /// <c>data-taper-end</c> (mm).</item>
-/// <item>Without a hint: filled shapes become Tatami, strokes of at least
+/// <item>Without a hint: narrow filled shapes become automatic satin columns when they fit
+/// well (<see cref="AutoColumns"/>), other filled shapes Tatami, strokes of at least
 /// <see cref="SatinStrokeMinMm"/> satin centre lines, thinner strokes Run.</item>
 /// </list>
-/// Codes: IMP001 shape skipped, IMP002 rails guessed from an outline, IMP003 unknown hint.
+/// Codes: IMP001 shape skipped, IMP002 rails guessed from an outline, IMP003 unknown hint,
+/// IMP004 narrow shape kept as Tatami (why), IMP005 satin columns made from a filled outline.
 /// </summary>
 public static class ObjectFactory
 {
@@ -32,7 +34,7 @@ public static class ObjectFactory
     public const double SatinStrokeMinMm = 1.2;
 
     public static (IReadOnlyList<EmbroideryThread> Threads, IReadOnlyList<EmbroideryObject> Objects, IReadOnlyList<Diagnostic> Diagnostics)
-        FromArtwork(ImportedArtwork artwork)
+        FromArtwork(ImportedArtwork artwork, bool autoSatinColumns = true)
     {
         var threads = new List<EmbroideryThread>();
         var objects = new List<EmbroideryObject>();
@@ -58,7 +60,7 @@ public static class ObjectFactory
                 StitchType.Run => Runs(shape, name, ThreadFor(shape.StrokeColor ?? color)),
                 StitchType.Tatami => Tatami(shape, name, ThreadFor(color), diagnostics),
                 StitchType.Rope => Ropes(shape, name, ThreadFor(shape.StrokeColor ?? color)),
-                _ => Default(shape, name, ThreadFor, diagnostics),
+                _ => Default(shape, name, ThreadFor, autoSatinColumns, diagnostics),
             };
             objects.AddRange(created);
         }
@@ -83,10 +85,20 @@ public static class ObjectFactory
         }
     }
 
-    private static IEnumerable<EmbroideryObject> Default(ImportedShape shape, string name, Func<string, int> threadFor, List<Diagnostic> diagnostics)
+    private static IEnumerable<EmbroideryObject> Default(ImportedShape shape, string name, Func<string, int> threadFor, bool autoSatin, List<Diagnostic> diagnostics)
     {
         var result = new List<EmbroideryObject>();
-        if (shape.FillColor is { } fill) result.AddRange(Tatami(shape, name, threadFor(fill), diagnostics));
+        if (shape.FillColor is { } fill)
+        {
+            var fillObjects = Tatami(shape, name, threadFor(fill), diagnostics).ToList();
+            if (autoSatin && fillObjects is [TatamiObject tatami] && AutoSatin(tatami, diagnostics, reportRejection: true) is { } columns)
+            {
+                fillObjects = columns;
+            }
+
+            result.AddRange(fillObjects);
+        }
+
         if (shape.StrokeColor is { } stroke)
         {
             var outlineName = shape.FillColor is null ? name : $"{name} kontur";
@@ -121,6 +133,27 @@ public static class ObjectFactory
         return [new TatamiObject { Id = Guid.NewGuid(), Name = name, ThreadIndex = thread, Region = region }];
     }
 
+    /// <summary>Satin columns for a narrow filled shape, or null when a fill suits it better.</summary>
+    private static List<EmbroideryObject>? AutoSatin(TatamiObject shape, List<Diagnostic> diagnostics, bool reportRejection)
+    {
+        var template = new SatinObject { Id = shape.Id, Name = shape.Name, ThreadIndex = shape.ThreadIndex };
+        var proposal = AutoColumns.Propose(shape.Region, template);
+        if (proposal.Accepted)
+        {
+            diagnostics.Add(Diagnostic.Info("IMP005", FormattableString.Invariant(
+                $"'{shape.Name}': {proposal.Columns.Count} satin column(s) made from the filled outline ({proposal.Coverage:P0} coverage); check the rails.")));
+            return [.. proposal.Columns];
+        }
+
+        // Only worth mentioning when the shape was narrow enough to be a candidate.
+        if (reportRejection && proposal.Columns.Count > 0)
+        {
+            diagnostics.Add(Diagnostic.Info("IMP004", $"'{shape.Name}' stays a fill: {proposal.Reason}."));
+        }
+
+        return null;
+    }
+
     private static IEnumerable<EmbroideryObject> Runs(ImportedShape shape, string name, int thread)
     {
         var paths = shape.Subpaths.Select(ClosedPath).Where(p => p.Length >= 2).ToList();
@@ -152,7 +185,11 @@ public static class ObjectFactory
 
         if (shape.FillColor is not null)
         {
-            // A filled outline marked as satin: split it into two rails at its extremes.
+            // A filled outline marked as satin: automatic columns when they fit, otherwise two
+            // rails split at the outline's extremes.
+            var region = new Region(subpaths.Where(s => s.Points.Count >= 3).Select(s => s.Points).ToArray(), shape.FillRule);
+            var asTatami = new TatamiObject { Id = Guid.NewGuid(), Name = name, ThreadIndex = thread, Region = region };
+            if (region.Rings.Count > 0 && AutoSatin(asTatami, diagnostics, reportRejection: false) is { } columns) return columns;
             var ring = subpaths.MaxBy(s => Math.Abs(PolygonOps.SignedArea(s.Points)))!.Points;
             var (a, b) = ObjectConverter.SplitRing(ring);
             diagnostics.Add(Diagnostic.Info("IMP002", $"'{name}': satin rails were guessed from the outline; check them or add rungs."));
@@ -203,6 +240,22 @@ public static class ObjectFactory
 public static class ObjectConverter
 {
     public const double DefaultSatinWidthMm = 3.0;
+
+    /// <summary>
+    /// Like <see cref="Convert"/>, but a fill turned into satin may become several columns
+    /// (automatic columns along its skeleton); the first keeps the object's id.
+    /// </summary>
+    public static IReadOnlyList<EmbroideryObject> ConvertMany(EmbroideryObject item, StitchType target)
+    {
+        if (item is TatamiObject t && target == StitchType.Satin)
+        {
+            var template = new SatinObject { Id = item.Id, Name = item.Name, ThreadIndex = item.ThreadIndex, Visible = item.Visible };
+            var proposal = AutoColumns.Propose(t.Region, template, template.Parameters.MaxWidthMm);
+            if (proposal.Accepted) return proposal.Columns;
+        }
+
+        return [Convert(item, target)];
+    }
 
     public static EmbroideryObject Convert(EmbroideryObject item, StitchType target)
     {

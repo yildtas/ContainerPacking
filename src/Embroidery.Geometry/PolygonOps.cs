@@ -144,6 +144,14 @@ public static class PolygonOps
         return Math.Abs(Clipper.Area(Clipper.Intersect(ia, ib, Clipper2Lib.FillRule.NonZero)));
     }
 
+    /// <summary>Union of several regions (each resolved with its own fill rule first).</summary>
+    public static Region Union(IEnumerable<Region> regions)
+    {
+        var all = new PathsD();
+        foreach (var r in regions) all.AddRange(ToClipper(Normalize(r)));
+        return FromClipper(Clipper.Union(all, Clipper2Lib.FillRule.NonZero));
+    }
+
     /// <summary>
     /// Removes vertices that deviate less than <paramref name="toleranceMm"/> from the outline
     /// (Ramer–Douglas–Peucker). For coarse spatial queries, not for stitch geometry.

@@ -108,7 +108,9 @@ public sealed class ProjectService
         {
             var index = IndexOf(d, objectId);
             var objects = d.Objects.ToList();
-            objects[index] = ObjectConverter.Convert(objects[index], target);
+            var converted = ObjectConverter.ConvertMany(objects[index], target);
+            objects.RemoveAt(index);
+            objects.InsertRange(index, converted);
             return d with { Objects = objects };
         });
 
