@@ -85,6 +85,56 @@ public class SatinSourceTests
     }
 
     [Fact]
+    public void Miter_corner_pieces_meet_on_the_bisector_and_reach_the_outer_corner()
+    {
+        var p = NoUnderlay with { CornerStyle = CornerStyle.Miter };
+        var result = new SatinGenerator().Generate(Stroke([new(0, 0), new(20, 0), new(20, 20)], 4, p), GenerationContext.Default);
+        Assert.Contains(result.Diagnostics, d => d.Code == "SAT006" && d.Message.Contains("miter"));
+        var pts = result.Value.Stitches.Select(s => s.Position).ToList();
+        // Nothing beyond the square outer corner (22, -2); the outer corner itself is reached.
+        Assert.All(pts, q => Assert.True(q.X <= 22.01 && q.Y >= -2.01, $"{q}"));
+        Assert.Contains(pts, q => Vec2.Distance(q, new Vec2(22, -2)) < 0.3);
+        // First leg stays on its side of the miter line through (20,0) with normal (1,1)/√2.
+        var firstLeg = pts.TakeWhile(q => q.Y < 1).ToList();
+        Assert.All(firstLeg, q => Assert.True((q.X - 20) + q.Y <= 0.01, $"{q} crosses the miter line"));
+    }
+
+    [Fact]
+    public void Cap_corner_stops_both_pieces_at_the_corner()
+    {
+        // A 160° hairpin: auto chooses cap.
+        var angle = 160 * Math.PI / 180;
+        var tip = new Vec2(20, 0);
+        var back = tip + new Vec2(Math.Cos(angle), Math.Sin(angle)) * 20;
+        var result = new SatinGenerator().Generate(Stroke([new(0, 0), tip, back], 3), GenerationContext.Default);
+        Assert.Contains(result.Diagnostics, d => d.Code == "SAT006" && d.Message.Contains("cap"));
+        Assert.All(result.Value.Stitches, s => Assert.True(s.Position.X <= 21.6, $"{s.Position} runs past the tip"));
+    }
+
+    [Fact]
+    public void Auto_uses_miter_for_right_angles_and_lap_for_steeper_turns()
+    {
+        var right = new SatinGenerator().Generate(Stroke([new(0, 0), new(20, 0), new(20, 20)], 4), GenerationContext.Default);
+        Assert.Contains(right.Diagnostics, d => d.Code == "SAT006" && d.Message.Contains("1 miter"));
+        var steep = new Vec2(Math.Cos(2.2), Math.Sin(2.2)) * 20; // 126° turn
+        var lap = new SatinGenerator().Generate(Stroke([new(0, 0), new(20, 0), new Vec2(20, 0) + steep], 4), GenerationContext.Default);
+        Assert.Contains(lap.Diagnostics, d => d.Code == "SAT006" && d.Message.Contains("1 lap"));
+    }
+
+    [Fact]
+    public void Twisting_rails_are_reported()
+    {
+        var twisted = new SatinObject
+        {
+            Id = Guid.NewGuid(), Name = "t", ThreadIndex = 0, Source = SatinSource.Rails, Parameters = NoUnderlay,
+            RailA = [new(0, 0), new(20, 0)],
+            RailB = [new(0, 4), new(15, 4), new(5, 4.2), new(20, 4)],
+        };
+        Assert.Contains(SatinLadder.Build(twisted).Diagnostics, d => d.Code == "SAT007");
+        Assert.DoesNotContain(SatinLadder.Build(Rails()).Diagnostics, d => d.Code == "SAT007");
+    }
+
+    [Fact]
     public void Tight_smooth_curve_is_not_mistaken_for_a_corner()
     {
         var result = new SatinGenerator().Generate(Stroke(Arc(3, 0, 300), 3), GenerationContext.Default);

@@ -75,14 +75,40 @@ public sealed class SatinLadder
     }
 
     /// <summary>
-    /// Builds the ladder from the object's authoritative geometry.
-    /// Codes: SAT001 invalid geometry, SAT002 rail direction fixed, SAT004 column folds on a tight
-    /// curve, SAT005 rung ignored.
+    /// Moves every point lying on the wrong side of the line through <paramref name="c"/> (normal
+    /// <paramref name="t"/>) back onto it, sliding along <paramref name="slide"/>. Points with
+    /// <c>dot(p − c, t) &gt; 0</c> are clipped when <paramref name="keepNegative"/> is true.
+    /// Used to make two corner pieces meet exactly on the miter line.
     /// </summary>
+    public SatinLadder ClipAtLine(Vec2 c, Vec2 t, bool keepNegative, Vec2 slide)
+    {
+        var denom = Vec2.Dot(slide, t);
+        if (Math.Abs(denom) < 1e-9) return this;
+        Vec2 Clip(Vec2 p)
+        {
+            var side = Vec2.Dot(p - c, t);
+            var wrong = keepNegative ? side > 0 : side < 0;
+            return wrong ? p - slide * (side / denom) : p;
+        }
+
+        var a = new List<Vec2>(A.Length);
+        var b = new List<Vec2>(B.Length);
+        for (var i = 0; i < A.Length; i++)
+        {
+            var pa = Clip(A[i]);
+            var pb = Clip(B[i]);
+            if (a.Count > 0 && pa.ApproximatelyEquals(a[^1], 1e-6) && pb.ApproximatelyEquals(b[^1], 1e-6)) continue;
+            a.Add(pa);
+            b.Add(pb);
+        }
+
+        return a.Count >= 2 ? new SatinLadder(a.ToArray(), b.ToArray()) : this;
+    }
+
     /// <summary>
-    /// The columns actually sewn: a centre-line column is split at sharp corners into pieces
-    /// that overlap by half the width at each corner; a rails column is one piece.
-    /// Code SAT006 reports splits.
+    /// The columns actually sewn. A centre-line column is split at sharp corners; each corner is
+    /// joined according to <see cref="SatinParameters.CornerStyle"/> (Auto: miter up to 100° of
+    /// turn, lap up to 140°, cap beyond). A rails column is one piece. Code SAT006 reports splits.
     /// </summary>
     public static GenerationResult<IReadOnlyList<SatinLadder>> BuildColumns(SatinObject item)
     {
@@ -93,27 +119,60 @@ public sealed class SatinLadder
         }
 
         var path = new ArcLengthPath(item.Centerline);
-        var corners = FindCorners(path, item.Parameters.CornerSplitAngleDeg, Math.Max(0.5, item.WidthMm / 2));
-        if (corners.Count == 0 || path.Start.ApproximatelyEquals(path.End, 1e-6))
+        var window = Math.Max(0.5, item.WidthMm / 2);
+        var cornerPositions = FindCorners(path, item.Parameters.CornerSplitAngleDeg, window);
+        if (cornerPositions.Count == 0 || path.Start.ApproximatelyEquals(path.End, 1e-6))
         {
             var single = Build(item);
             return new(single.Value is { } l ? [l] : [], single.Diagnostics);
         }
 
+        var half = item.WidthMm / 2;
+        var corners = cornerPositions.Select(s =>
+        {
+            var c = path.PointAt(s);
+            var d1 = (c - path.PointAt(s - window)).Normalized();
+            var d2 = (path.PointAt(s + window) - c).Normalized();
+            var turnDeg = Math.Acos(Math.Clamp(Vec2.Dot(d1, d2), -1, 1)) * 180 / Math.PI;
+            var style = item.Parameters.CornerStyle switch
+            {
+                CornerStyle.Auto => turnDeg <= 100 ? CornerStyle.Miter : turnDeg <= 140 ? CornerStyle.Lap : CornerStyle.Cap,
+                var fixedStyle => fixedStyle,
+            };
+            // How far the outer corner lies beyond the centre-line corner along each leg.
+            var reach = Math.Min(half * Math.Tan(turnDeg * Math.PI / 360), item.WidthMm * 2) + 0.3;
+            return (S: s, C: c, D1: d1, D2: d2, Style: style, Reach: reach, T: (d1 + d2).Normalized());
+        }).ToList();
+
         var diagnostics = new List<Diagnostic>();
         var ladders = new List<SatinLadder>();
         var cuts = new List<double> { 0 };
-        cuts.AddRange(corners);
+        cuts.AddRange(cornerPositions);
         cuts.Add(path.Length);
         for (var k = 0; k + 1 < cuts.Count; k++)
         {
             var piece = SubPath(path, cuts[k], cuts[k + 1]);
-            // Lap: every piece but the last runs on past its corner by half the width, so the
-            // outside of the corner is covered by the piece underneath.
-            if (k + 1 < cuts.Count - 1)
+            var startCorner = k > 0 ? corners[k - 1] : default;
+            var endCorner = k < corners.Count ? corners[k] : default;
+            var hasStart = k > 0;
+            var hasEnd = k < corners.Count;
+
+            if (hasStart && startCorner.Style == CornerStyle.Miter)
             {
-                var dir = (piece[^1] - piece[^2]).Normalized();
-                piece.Add(piece[^1] + dir * (item.WidthMm / 2));
+                piece.Insert(0, piece[0] - startCorner.D2 * startCorner.Reach);
+            }
+
+            if (hasEnd)
+            {
+                switch (endCorner.Style)
+                {
+                    case CornerStyle.Lap:
+                        piece.Add(piece[^1] + endCorner.D1 * half);
+                        break;
+                    case CornerStyle.Miter:
+                        piece.Add(piece[^1] + endCorner.D1 * endCorner.Reach);
+                        break;
+                }
             }
 
             var part = item with
@@ -124,10 +183,22 @@ public sealed class SatinLadder
             };
             var built = Build(part);
             diagnostics.AddRange(built.Diagnostics);
-            if (built.Value is { } ladder) ladders.Add(ladder);
+            if (built.Value is not { } ladder) continue;
+            if (hasEnd && endCorner.Style == CornerStyle.Miter)
+            {
+                ladder = ladder.ClipAtLine(endCorner.C, endCorner.T, keepNegative: true, endCorner.D1);
+            }
+
+            if (hasStart && startCorner.Style == CornerStyle.Miter)
+            {
+                ladder = ladder.ClipAtLine(startCorner.C, startCorner.T, keepNegative: false, startCorner.D2);
+            }
+
+            ladders.Add(ladder);
         }
 
-        diagnostics.Add(Diagnostic.Info("SAT006", $"Column split at {corners.Count} sharp corner(s) into overlapping pieces.", item.Id));
+        var summary = string.Join(", ", corners.GroupBy(c => c.Style).Select(g => $"{g.Count()} {g.Key.ToString().ToLowerInvariant()}"));
+        diagnostics.Add(Diagnostic.Info("SAT006", $"Column split at {corners.Count} sharp corner(s): {summary}.", item.Id));
         return new(ladders, diagnostics);
     }
 
@@ -178,6 +249,11 @@ public sealed class SatinLadder
         return result;
     }
 
+    /// <summary>
+    /// Builds the ladder from the object's authoritative geometry.
+    /// Codes: SAT001 invalid geometry, SAT002 rail direction fixed, SAT004 column folds on a tight
+    /// curve, SAT005 rung ignored, SAT007 column twists.
+    /// </summary>
     public static GenerationResult<SatinLadder?> Build(SatinObject item)
     {
         var diagnostics = new List<Diagnostic>();
@@ -314,6 +390,31 @@ public sealed class SatinLadder
             }
         }
 
+        // Consecutive throws that cross each other mean the column twists (typically at a
+        // corner drawn with rails but no rungs): the stitches there would pile up and bunch.
+        var twists = 0;
+        for (var i = 1; i < a.Count; i++)
+        {
+            if (SegmentsCross(a[i - 1], b[i - 1], a[i], b[i])) twists++;
+        }
+
+        if (twists > 0)
+        {
+            diagnostics.Add(Diagnostic.Warning("SAT007",
+                $"The column twists in {twists} place(s): throws cross each other. Add rungs there or split the column.", item.Id));
+        }
+
         return new SatinLadder(a.ToArray(), b.ToArray());
+    }
+
+    private static bool SegmentsCross(Vec2 p1, Vec2 p2, Vec2 q1, Vec2 q2)
+    {
+        static double Orient(Vec2 a, Vec2 b, Vec2 c) => Vec2.Cross(b - a, c - a);
+        var d1 = Orient(q1, q2, p1);
+        var d2 = Orient(q1, q2, p2);
+        var d3 = Orient(p1, p2, q1);
+        var d4 = Orient(p1, p2, q2);
+        // Proper crossings only; touching at a shared tip point (pointed ends) is not a twist.
+        return d1 * d2 < -1e-12 && d3 * d4 < -1e-12;
     }
 }

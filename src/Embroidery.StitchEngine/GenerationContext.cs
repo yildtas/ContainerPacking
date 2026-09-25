@@ -12,7 +12,7 @@ public static class StitchEngineInfo
     /// Bump whenever any generator's output changes for the same input; cached blocks
     /// produced by another version are discarded.
     /// </summary>
-    public const string GeneratorVersion = "1.4.0";
+    public const string GeneratorVersion = "1.5.0";
 }
 
 /// <summary>

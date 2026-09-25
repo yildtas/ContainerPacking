@@ -31,6 +31,7 @@ export interface SatinParameters {
   shortStitchThresholdMm: number;
   shortStitchFraction: number;
   cornerSplitAngleDeg: number;
+  cornerStyle: "auto" | "lap" | "miter" | "cap";
   underlay: SatinUnderlay;
 }
 

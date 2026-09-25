@@ -17,6 +17,22 @@ public enum ShortStitchMode
     InnerOnly,
 }
 
+/// <summary>How a centre-line column is joined where it turns sharply.</summary>
+public enum CornerStyle
+{
+    /// <summary>Miter up to 100° of turn, lap up to 140°, cap beyond.</summary>
+    Auto,
+
+    /// <summary>The first piece runs on past the corner and the second is sewn over it.</summary>
+    Lap,
+
+    /// <summary>Both pieces meet on the bisector of the corner.</summary>
+    Miter,
+
+    /// <summary>Both pieces stop at the corner; a very sharp tip is cut off flat.</summary>
+    Cap,
+}
+
 public sealed record SatinParameters
 {
     /// <summary>
@@ -42,6 +58,8 @@ public sealed record SatinParameters
     /// into two overlapping columns ("lap" corner) instead of folding. 180 disables splitting.
     /// </summary>
     public double CornerSplitAngleDeg { get; init; } = 60;
+
+    public CornerStyle CornerStyle { get; init; } = CornerStyle.Auto;
 
     /// <summary>Penetrations closer than this on the inner rail of a curve are shortened.</summary>
     public double ShortStitchThresholdMm { get; init; } = 0.25;

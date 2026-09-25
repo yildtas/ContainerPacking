@@ -97,6 +97,17 @@ function ParameterFields({ item, onChange }: { item: EmbroideryObject; onChange:
               onCommit={(v) => set({ shortStitch: v })}
             />
             <NumberField label="Köşe bölme açısı" unit="°" step={5} value={p.cornerSplitAngleDeg} min={20} max={180} onCommit={(v) => set({ cornerSplitAngleDeg: v })} />
+            <SelectField
+              label="Köşe stili"
+              value={p.cornerStyle}
+              options={[
+                { value: "auto", label: "Otomatik" },
+                { value: "miter", label: "Gönye (miter)" },
+                { value: "lap", label: "Bindirme (lap)" },
+                { value: "cap", label: "Küt (cap)" },
+              ]}
+              onCommit={(v) => set({ cornerStyle: v })}
+            />
           </fieldset>
           <fieldset>
             <legend>Underlay</legend>
