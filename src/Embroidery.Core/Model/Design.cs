@@ -23,6 +23,9 @@ public sealed record Design
 
     public Hoop Hoop { get; init; } = Hoop.Default;
     public string MachineProfileId { get; init; } = "generic-dst";
+
+    /// <summary>The stitch profile last applied (see <see cref="StitchProfile"/>).</summary>
+    public string StitchProfileId { get; init; } = StitchProfile.Standard.Id;
     public ConnectionPolicy Connections { get; init; } = ConnectionPolicy.Default;
 
     public EmbroideryObject? FindObject(Guid id) => Objects.FirstOrDefault(o => o.Id == id);

@@ -38,9 +38,19 @@ public static class ParameterValidator
                 Range(sp.MaxWidthMm, 1, 20, "max satin width");
                 Range(sp.ShortStitchThresholdMm, 0, 2, "short stitch threshold");
                 Range(sp.ShortStitchFraction, 0, 0.5, "short stitch fraction");
+                Range(sp.CornerSplitAngleDeg, 20, 180, "corner split angle");
                 Range(sp.Underlay.EdgeInsetMm, 0, 5, "edge inset");
                 Range(sp.Underlay.ZigZagSpacingMm, 0.5, 10, "zig-zag spacing");
                 Range(sp.Underlay.StitchLengthMm, 0.5, 12, "underlay stitch length");
+                break;
+            case RopeObject rope:
+                Points(rope.Path, "rope path");
+                Range(rope.WidthMm, 1, 20, "rope width");
+                Range(rope.Parameters.PitchMm, 0.8, 20, "rope pitch");
+                Range(rope.Parameters.StrandLengthMm, 1, 40, "strand length");
+                Range(rope.Parameters.SpacingMm, 0.15, 5, "rope satin spacing");
+                Range(rope.Parameters.OverlapFactor, 0.5, 2, "strand overlap");
+                Range(rope.Parameters.PullCompensationMm, -1, 3, "rope pull compensation");
                 break;
             case TatamiObject t:
                 foreach (var ring in t.Region.Rings) Points(ring, "region");

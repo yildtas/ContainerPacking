@@ -13,7 +13,8 @@ using Embroidery.Machine;
 // Usage is printed when arguments are missing.
 
 const string Usage = """
-    embroidery convert <in.svg> <out.dst> [--width mm] [--report r.json] [--preview p.svg] [--fabric #RRGGBB]
+    embroidery convert <in.svg> <out.dst> [--width mm] [--profile standard|glossy-satin|metallic] [--mirror h|v] [--hoop WxH]
+                       [--report r.json] [--preview p.svg] [--fabric #RRGGBB]
     embroidery analyze <in.dst> [--report r.json] [--preview p.svg] [--fabric #RRGGBB] [--thread #RRGGBB]
     embroidery compare <reference.dst> <candidate.dst|candidate.svg>
     embroidery calibration <out-dir>
@@ -39,15 +40,37 @@ static int Convert(string input, string output, Dictionary<string, string> optio
 {
     var service = new ProjectService();
     double? width = options.TryGetValue("width", out var w) ? double.Parse(w, CultureInfo.InvariantCulture) : null;
-    var imported = service.ImportSvg(Path.GetFileName(input), File.ReadAllText(input), new SvgImportOptions { TargetWidthMm = width });
-    var (encoded, plan) = service.Encode(imported.Design);
+    var imported = service.ImportSvg(Path.GetFileName(input), File.ReadAllText(input), new SvgImportOptions { TargetWidthMm = width },
+        options.GetValueOrDefault("profile"));
+    var design = imported.Design;
+    if (options.TryGetValue("mirror", out var mirror))
+    {
+        design = service.Mirror(design.Id, null, mirror.ToLowerInvariant() switch
+        {
+            "h" => MirrorAxis.Horizontal,
+            "v" => MirrorAxis.Vertical,
+            _ => throw new ArgumentException("--mirror must be h or v."),
+        });
+    }
+
+    if (options.TryGetValue("hoop", out var hoopText))
+    {
+        var parts = hoopText.ToLowerInvariant().Split('x');
+        if (parts.Length != 2) throw new ArgumentException("--hoop must look like 300x500 (mm).");
+        var hoop = new Embroidery.Core.Model.Hoop(hoopText, double.Parse(parts[0], CultureInfo.InvariantCulture), double.Parse(parts[1], CultureInfo.InvariantCulture));
+        design = service.UpdateSettings(design.Id, null, hoop, null, null);
+    }
+
+    var (encoded, plan) = service.Encode(design);
     File.WriteAllBytes(output, DstWriter.Write(encoded));
 
     var metrics = StitchMetrics.From(encoded);
     Print(Path.GetFileName(output), metrics);
-    foreach (var d in imported.Diagnostics.Concat(plan.Diagnostics).Where(d => d.Severity != Severity.Info))
+    Console.WriteLine($"  hoop {design.Hoop.Name} ({design.Hoop.WidthMm:0} × {design.Hoop.HeightMm:0} mm), profile {design.StitchProfileId}");
+    foreach (var group in imported.Diagnostics.Concat(plan.Diagnostics).Where(d => d.Severity != Severity.Info).GroupBy(d => (d.Severity, d.Code, d.Message)))
     {
-        Console.WriteLine($"  {d.Severity,-7} {d.Code} {d.Message}");
+        var count = group.Count() > 1 ? $" (×{group.Count()})" : "";
+        Console.WriteLine($"  {group.Key.Severity,-7} {group.Key.Code} {group.Key.Message}{count}");
     }
 
     WriteExtras(options, encoded, metrics, imported.Design.Threads.Select(t => t.ColorHex).ToList());

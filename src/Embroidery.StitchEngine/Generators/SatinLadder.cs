@@ -28,6 +28,13 @@ public sealed class SatinLadder
         }
     }
 
+    /// <summary>A ladder from explicit facing pairs (used by generated shapes such as rope strands).</summary>
+    public static SatinLadder FromPairs(Vec2[] a, Vec2[] b)
+    {
+        if (a.Length != b.Length || a.Length < 2) throw new ArgumentException("A ladder needs at least two matching pairs.");
+        return new SatinLadder(a, b);
+    }
+
     public Vec2[] A { get; }
     public Vec2[] B { get; }
     public double[] Advance { get; }
@@ -72,6 +79,105 @@ public sealed class SatinLadder
     /// Codes: SAT001 invalid geometry, SAT002 rail direction fixed, SAT004 column folds on a tight
     /// curve, SAT005 rung ignored.
     /// </summary>
+    /// <summary>
+    /// The columns actually sewn: a centre-line column is split at sharp corners into pieces
+    /// that overlap by half the width at each corner; a rails column is one piece.
+    /// Code SAT006 reports splits.
+    /// </summary>
+    public static GenerationResult<IReadOnlyList<SatinLadder>> BuildColumns(SatinObject item)
+    {
+        if (item.Source != SatinSource.Stroke || item.Parameters.CornerSplitAngleDeg >= 180 || item.Centerline.Count < 3)
+        {
+            var single = Build(item);
+            return new(single.Value is { } l ? [l] : [], single.Diagnostics);
+        }
+
+        var path = new ArcLengthPath(item.Centerline);
+        var corners = FindCorners(path, item.Parameters.CornerSplitAngleDeg, Math.Max(0.5, item.WidthMm / 2));
+        if (corners.Count == 0 || path.Start.ApproximatelyEquals(path.End, 1e-6))
+        {
+            var single = Build(item);
+            return new(single.Value is { } l ? [l] : [], single.Diagnostics);
+        }
+
+        var diagnostics = new List<Diagnostic>();
+        var ladders = new List<SatinLadder>();
+        var cuts = new List<double> { 0 };
+        cuts.AddRange(corners);
+        cuts.Add(path.Length);
+        for (var k = 0; k + 1 < cuts.Count; k++)
+        {
+            var piece = SubPath(path, cuts[k], cuts[k + 1]);
+            // Lap: every piece but the last runs on past its corner by half the width, so the
+            // outside of the corner is covered by the piece underneath.
+            if (k + 1 < cuts.Count - 1)
+            {
+                var dir = (piece[^1] - piece[^2]).Normalized();
+                piece.Add(piece[^1] + dir * (item.WidthMm / 2));
+            }
+
+            var part = item with
+            {
+                Centerline = piece,
+                StartTaperMm = k == 0 ? item.StartTaperMm : 0,
+                EndTaperMm = k == cuts.Count - 2 ? item.EndTaperMm : 0,
+            };
+            var built = Build(part);
+            diagnostics.AddRange(built.Diagnostics);
+            if (built.Value is { } ladder) ladders.Add(ladder);
+        }
+
+        diagnostics.Add(Diagnostic.Info("SAT006", $"Column split at {corners.Count} sharp corner(s) into overlapping pieces.", item.Id));
+        return new(ladders, diagnostics);
+    }
+
+    /// <summary>
+    /// Arc-length positions where the line turns more than <paramref name="angleDeg"/>, judged over a
+    /// window so that densely flattened curves are not mistaken for corners.
+    /// </summary>
+    private static List<double> FindCorners(ArcLengthPath path, double angleDeg, double window)
+    {
+        var cosLimit = Math.Cos(angleDeg * Math.PI / 180);
+        var corners = new List<double>();
+        for (var i = 1; i < path.Points.Count - 1; i++)
+        {
+            var s = path.LengthAt(i);
+            if (s < window || s > path.Length - window) continue;
+            var p = path.Points[i];
+            var din = (p - path.PointAt(s - window)).Normalized();
+            var dout = (path.PointAt(s + window) - p).Normalized();
+            if (Vec2.Dot(din, dout) >= cosLimit) continue;
+
+            // A real corner turns within a tiny neighbourhood too; a tight but smooth curve
+            // (spiral centre) does not, and must stay one column.
+            const double near = 0.12;
+            var nin = (p - path.PointAt(s - near)).Normalized();
+            var nout = (path.PointAt(s + near) - p).Normalized();
+            if (Vec2.Dot(nin, nout) >= Math.Cos(angleDeg * 0.8 * Math.PI / 180)) continue;
+            if (corners.Count > 0 && s - corners[^1] < 2 * window)
+            {
+                continue;
+            }
+
+            corners.Add(s);
+        }
+
+        return corners;
+    }
+
+    private static List<Vec2> SubPath(ArcLengthPath path, double from, double to)
+    {
+        var result = new List<Vec2> { path.PointAt(from) };
+        for (var i = 0; i < path.Points.Count; i++)
+        {
+            var s = path.LengthAt(i);
+            if (s > from + 1e-9 && s < to - 1e-9) result.Add(path.Points[i]);
+        }
+
+        result.Add(path.PointAt(to));
+        return result;
+    }
+
     public static GenerationResult<SatinLadder?> Build(SatinObject item)
     {
         var diagnostics = new List<Diagnostic>();

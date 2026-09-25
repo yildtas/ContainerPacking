@@ -37,8 +37,9 @@ public sealed class ProjectService
 
     public GenerationCache Cache => _cache;
 
-    public ImportResult ImportSvg(string fileName, string svgText, SvgImportOptions? options = null)
+    public ImportResult ImportSvg(string fileName, string svgText, SvgImportOptions? options = null, string? stitchProfileId = null)
     {
+        var profile = ResolveProfile(stitchProfileId);
         var artwork = SvgImporter.Import(svgText, options);
         var diagnostics = new List<Diagnostic>(artwork.Diagnostics);
         if (artwork.Diagnostics.Any(d => d.Severity == Severity.Error))
@@ -46,7 +47,8 @@ public sealed class ProjectService
             throw new DesignValidationException(string.Join(" ", artwork.Diagnostics.Where(d => d.Severity == Severity.Error).Select(d => d.Message)));
         }
 
-        var (threads, objects, objectDiagnostics) = ObjectFactory.FromArtwork(artwork);
+        var (threads, created, objectDiagnostics) = ObjectFactory.FromArtwork(artwork);
+        var objects = created.Select(profile.Apply).ToList();
         diagnostics.AddRange(objectDiagnostics);
         var design = new Design
         {
@@ -56,6 +58,8 @@ public sealed class ProjectService
             Artwork = new SourceArtwork(fileName, svgText, artwork.ScaleMmPerUnit),
             Threads = threads,
             Objects = objects,
+            StitchProfileId = profile.Id,
+            Hoop = SmallestHoopFor(objects),
         };
         _sessions[design.Id] = new ProjectSession(design);
         return new ImportResult(design, diagnostics);
@@ -135,6 +139,35 @@ public sealed class ProjectService
             Connections = connections ?? d.Connections,
             Name = string.IsNullOrWhiteSpace(name) ? d.Name : name.Trim(),
         });
+
+    public Design Mirror(Guid projectId, long? expectedRevision, MirrorAxis axis) =>
+        Session(projectId).Apply(expectedRevision, d => DesignTransforms.Mirror(d, axis));
+
+    /// <summary>Applies a stitch profile's density parameters to every object (one undoable step).</summary>
+    public Design ApplyStitchProfile(Guid projectId, long? expectedRevision, string profileId)
+    {
+        var profile = ResolveProfile(profileId);
+        return Session(projectId).Apply(expectedRevision, d => d with
+        {
+            StitchProfileId = profile.Id,
+            Objects = d.Objects.Select(profile.Apply).ToList(),
+        });
+    }
+
+    /// <summary>The smallest preset hoop or frame the objects fit in (the largest when none does).</summary>
+    public static Hoop SmallestHoopFor(IReadOnlyList<EmbroideryObject> objects)
+    {
+        var b = objects.Aggregate(Core.Primitives.Bounds.Empty, (acc, o) => acc.Include(o.Bounds));
+        if (b.IsEmpty) return Hoop.Default;
+        return HoopPresets.All
+            .Where(h => (h.WidthMm >= b.Width && h.HeightMm >= b.Height) || (h.WidthMm >= b.Height && h.HeightMm >= b.Width))
+            .OrderBy(h => h.WidthMm * h.HeightMm)
+            .FirstOrDefault() ?? HoopPresets.All.MaxBy(h => h.WidthMm * h.HeightMm)!;
+    }
+
+    private static StitchProfile ResolveProfile(string? id) =>
+        id is null ? StitchProfile.Standard
+            : StitchProfile.Find(id) ?? throw new DesignValidationException($"Unknown stitch profile '{id}'.");
 
     public Design Undo(Guid projectId) => Session(projectId).Undo();
     public Design Redo(Guid projectId) => Session(projectId).Redo();

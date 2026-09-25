@@ -156,6 +156,7 @@ public class ProjectServiceTests
     [InlineData(StitchType.Run)]
     [InlineData(StitchType.Satin)]
     [InlineData(StitchType.Tatami)]
+    [InlineData(StitchType.Rope)]
     public void Every_object_converts_to_every_type_and_still_generates(StitchType target)
     {
         var (service, design) = Import();

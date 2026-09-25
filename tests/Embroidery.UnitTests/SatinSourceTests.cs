@@ -70,6 +70,36 @@ public class SatinSourceTests
         Assert.Contains(result.Diagnostics, d => d.Code == "SAT004");
     }
 
+    [Fact]
+    public void Sharp_corner_splits_the_column_and_covers_the_outside()
+    {
+        var corner = Stroke([new(0, 0), new(20, 0), new(20, 20)], 4, NoUnderlay);
+        var result = new SatinGenerator().Generate(corner, GenerationContext.Default);
+        Assert.Contains(result.Diagnostics, d => d.Code == "SAT006");
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "SAT004");
+        // The outer corner (22, -2) is reached by the lapped first piece.
+        Assert.Contains(result.Value.Stitches, s => s.Position.X > 21.5 && s.Position.Y < -1.5);
+
+        var unsplit = new SatinGenerator().Generate(corner with { Parameters = NoUnderlay with { CornerSplitAngleDeg = 180 } }, GenerationContext.Default);
+        Assert.Contains(unsplit.Diagnostics, d => d.Code == "SAT004");
+    }
+
+    [Fact]
+    public void Tight_smooth_curve_is_not_mistaken_for_a_corner()
+    {
+        var result = new SatinGenerator().Generate(Stroke(Arc(3, 0, 300), 3), GenerationContext.Default);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "SAT006");
+    }
+
+    [Fact]
+    public void Split_column_sewn_backwards_still_covers_both_legs()
+    {
+        var corner = Stroke([new(0, 0), new(20, 0), new(20, 20)], 4, NoUnderlay);
+        var stitches = new SatinGenerator().Generate(corner, new GenerationContext(1, new Vec2(20, 20))).Value.Stitches;
+        Assert.True(stitches[0].Position.Y > 18);
+        Assert.True(stitches[^1].Position.X < 2);
+    }
+
     private static SatinObject Rails(params Rung[] rungs) => new()
     {
         Id = Guid.NewGuid(), Name = "r", ThreadIndex = 0, Source = SatinSource.Rails,

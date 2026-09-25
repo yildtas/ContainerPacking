@@ -77,6 +77,32 @@ public class PlanTests
     }
 
     [Fact]
+    public void Gap_under_a_later_object_is_sewn_as_hidden_travel_instead_of_a_trim()
+    {
+        var cover = new TatamiObject
+        {
+            Id = Guid.NewGuid(), Name = "cover", ThreadIndex = 0,
+            Region = new Region([new Vec2[] { new(-5, -5), new(45, -5), new(45, 5), new(-5, 5) }]),
+        };
+        var plan = Build(DesignOf(Line(0, 0, 10, 0), Line(30, 0, 40, 0), cover));
+        var link = ConnectorCommands(plan, 1);
+        Assert.All(link, c => Assert.Equal(StitchCommand.Travel, c));
+        Assert.Contains(plan.Diagnostics, d => d.Code == "Q007");
+
+        // Without anything sewn on top later, the same gap is cut.
+        var cut = Build(DesignOf(Line(0, 0, 10, 0), Line(30, 0, 40, 0)));
+        Assert.Contains(StitchCommand.Trim, ConnectorCommands(cut, 1));
+
+        // An object sewn earlier does not hide anything.
+        var earlier = Build(DesignOf(cover, Line(0, 0, 10, 0), Line(30, 0, 40, 0)));
+        Assert.Contains(StitchCommand.Trim, earlier.Blocks.Where(b => b.Kind == BlockKind.Connector).SelectMany(b => b.Stitches).Select(s => s.Command));
+
+        // The policy can switch it off.
+        var design = DesignOf(Line(0, 0, 10, 0), Line(30, 0, 40, 0), cover) with { Connections = new ConnectionPolicy { HiddenTravel = false } };
+        Assert.Contains(StitchCommand.Trim, ConnectorCommands(Build(design), 1));
+    }
+
+    [Fact]
     public void Quality_pass_flags_designs_larger_than_the_hoop()
     {
         var design = DesignOf(Line(0, 0, 200, 0)) with { Hoop = new Hoop("small", 100, 100) };

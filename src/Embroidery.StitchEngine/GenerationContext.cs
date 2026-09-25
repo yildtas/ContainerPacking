@@ -12,7 +12,7 @@ public static class StitchEngineInfo
     /// Bump whenever any generator's output changes for the same input; cached blocks
     /// produced by another version are discarded.
     /// </summary>
-    public const string GeneratorVersion = "1.3.0";
+    public const string GeneratorVersion = "1.4.0";
 }
 
 /// <summary>
@@ -36,6 +36,7 @@ public sealed class ObjectGenerator
     private readonly RunGenerator _run = new();
     private readonly SatinGenerator _satin = new();
     private readonly TatamiGenerator _tatami = new();
+    private readonly RopeGenerator _rope = new();
 
     public GenerationResult<LogicalStitchBlock> Generate(EmbroideryObject item, GenerationContext context, CancellationToken ct = default)
     {
@@ -46,6 +47,7 @@ public sealed class ObjectGenerator
                 RunObject r => _run.Generate(r, context, ct),
                 SatinObject s => _satin.Generate(s, context, ct),
                 TatamiObject t => _tatami.Generate(t, context, ct),
+                RopeObject r => _rope.Generate(r, context, ct),
                 _ => Failed(item, $"Unsupported object type {item.GetType().Name}."),
             };
         }
@@ -79,6 +81,7 @@ public static class EntryCandidates
         SatinObject { Source: SatinSource.Stroke } s when s.Centerline.Count > 0 => [s.Centerline[0], s.Centerline[^1]],
         SatinObject s when s.RailA.Count > 0 && s.RailB.Count > 0 =>
             [Vec2.Lerp(s.RailA[0], s.RailB[0], 0.5), Vec2.Lerp(s.RailA[^1], s.RailB[^1], 0.5)],
+        RopeObject r when r.Path.Count > 0 => [r.Path[0], r.Path[^1]],
         TatamiObject t when !t.Bounds.IsEmpty =>
         [
             new Vec2(t.Bounds.MinX, t.Bounds.MinY), new Vec2(t.Bounds.MaxX, t.Bounds.MinY),

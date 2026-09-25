@@ -8,10 +8,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Embroidery.Host;
 
-public sealed record ImportSvgRequest(string FileName, string Svg, double? TargetWidthMm);
+public sealed record ImportSvgRequest(string FileName, string Svg, double? TargetWidthMm, string? StitchProfileId);
 public sealed record ConvertRequest(StitchType Type);
 public sealed record ReorderRequest(IReadOnlyList<Guid> Order);
 public sealed record SettingsRequest(string? Name, Hoop? Hoop, ConnectionPolicy? Connections);
+public sealed record ProfileRequest(string ProfileId);
+public sealed record MirrorRequest(MirrorAxis Axis);
 
 public sealed record ProjectState(Design Design, bool CanUndo, bool CanRedo, IReadOnlyList<Diagnostic> Diagnostics);
 
@@ -25,11 +27,17 @@ public static class ApiEndpoints
     {
         app.MapGet("/api/session", (LocalSecurity security) => Results.Ok(new { token = security.Token }));
 
+        app.MapGet("/api/profiles", () => Results.Ok(new
+        {
+            stitch = StitchProfile.BuiltIn,
+            hoops = HoopPresets.All,
+        }));
+
         var api = app.MapGroup("/api/projects");
 
         api.MapPost("/import/svg", (ImportSvgRequest request, ProjectService projects) =>
         {
-            var result = projects.ImportSvg(request.FileName, request.Svg, new SvgImportOptions { TargetWidthMm = request.TargetWidthMm });
+            var result = projects.ImportSvg(request.FileName, request.Svg, new SvgImportOptions { TargetWidthMm = request.TargetWidthMm }, request.StitchProfileId);
             return Results.Ok(State(projects, result.Design, result.Diagnostics));
         });
 
@@ -70,6 +78,12 @@ public static class ApiEndpoints
 
         api.MapPut("/{id:guid}/settings", (Guid id, SettingsRequest body, HttpRequest http, ProjectService projects) =>
             Results.Ok(State(projects, projects.UpdateSettings(id, Revision(http), body.Hoop, body.Connections, body.Name))));
+
+        api.MapPost("/{id:guid}/mirror", (Guid id, MirrorRequest body, HttpRequest http, ProjectService projects) =>
+            Results.Ok(State(projects, projects.Mirror(id, Revision(http), body.Axis))));
+
+        api.MapPut("/{id:guid}/profile", (Guid id, ProfileRequest body, HttpRequest http, ProjectService projects) =>
+            Results.Ok(State(projects, projects.ApplyStitchProfile(id, Revision(http), body.ProfileId))));
 
         api.MapPost("/{id:guid}/undo", (Guid id, ProjectService projects) => Results.Ok(State(projects, projects.Undo(id))));
         api.MapPost("/{id:guid}/redo", (Guid id, ProjectService projects) => Results.Ok(State(projects, projects.Redo(id))));

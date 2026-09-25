@@ -57,6 +57,7 @@ public static class ObjectFactory
                 StitchType.Satin => Satin(shape, name, ThreadFor(color), diagnostics),
                 StitchType.Run => Runs(shape, name, ThreadFor(shape.StrokeColor ?? color)),
                 StitchType.Tatami => Tatami(shape, name, ThreadFor(color), diagnostics),
+                StitchType.Rope => Ropes(shape, name, ThreadFor(shape.StrokeColor ?? color)),
                 _ => Default(shape, name, ThreadFor, diagnostics),
             };
             objects.AddRange(created);
@@ -75,6 +76,7 @@ public static class ObjectFactory
             case "run": return StitchType.Run;
             case "satin": return StitchType.Satin;
             case "tatami" or "fill": return StitchType.Tatami;
+            case "rope" or "halat": return StitchType.Rope;
             default:
                 diagnostics.Add(Diagnostic.Warning("IMP003", $"'{name}': unknown data-stitch=\"{value}\"; the default type was used."));
                 return null;
@@ -172,6 +174,22 @@ public static class ObjectFactory
         });
     }
 
+    private static IEnumerable<EmbroideryObject> Ropes(ImportedShape shape, string name, int thread)
+    {
+        var paths = shape.Subpaths.Select(ClosedPath).Where(p => p.Length >= 2).ToList();
+        var width = Number(shape.Hints, "width") ?? (shape.StrokeWidthMm >= 1 ? shape.StrokeWidthMm : 4.0);
+        var pitch = Number(shape.Hints, "pitch");
+        return paths.Select((path, i) => (EmbroideryObject)new RopeObject
+        {
+            Id = Guid.NewGuid(),
+            Name = paths.Count > 1 ? $"{name} {i + 1}" : name,
+            ThreadIndex = thread,
+            Path = path,
+            WidthMm = width,
+            Parameters = pitch is { } pt ? new RopeParameters { PitchMm = pt, StrandLengthMm = pt * 2 } : new RopeParameters(),
+        });
+    }
+
     private static Vec2[] ClosedPath(FlatSubpath sp) =>
         sp.Closed ? sp.Points.Append(sp.Points[0]).ToArray() : sp.Points.ToArray();
 
@@ -201,9 +219,26 @@ public static class ObjectConverter
             (SatinObject s, StitchType.Tatami) => Tatami(item, [Outline(s)]),
             (TatamiObject t, StitchType.Run) => Run(item, OuterRingPath(t.Region)),
             (TatamiObject t, StitchType.Satin) => RailsSatin(item, SplitRing(LargestRing(t.Region))),
+            (RopeObject r, StitchType.Run) => Run(item, r.Path),
+            (RopeObject r, StitchType.Satin) => new SatinObject
+            {
+                Id = item.Id, Name = item.Name, ThreadIndex = item.ThreadIndex, Visible = item.Visible,
+                Source = SatinSource.Stroke, Centerline = r.Path, WidthMm = r.WidthMm,
+            },
+            (RopeObject r, StitchType.Tatami) => Tatami(item, PolygonOps.BufferPath(r.Path, r.WidthMm).Rings.ToArray()),
+            (_, StitchType.Rope) => Rope(item, item switch
+            {
+                RunObject r => (r.Path, DefaultSatinWidthMm),
+                SatinObject s => (Centerline(s), s.Source == SatinSource.Stroke ? s.WidthMm : DefaultSatinWidthMm),
+                TatamiObject t => (OuterRingPath(t.Region), DefaultSatinWidthMm),
+                _ => ((IReadOnlyList<Vec2>)[], DefaultSatinWidthMm),
+            }),
             _ => throw new InvalidOperationException($"Cannot convert {item.StitchType} to {target}."),
         };
     }
+
+    private static RopeObject Rope(EmbroideryObject from, (IReadOnlyList<Vec2> Path, double Width) g) =>
+        new() { Id = from.Id, Name = from.Name, ThreadIndex = from.ThreadIndex, Visible = from.Visible, Path = g.Path, WidthMm = Math.Max(1, g.Width) };
 
     private static RunObject Run(EmbroideryObject from, IReadOnlyList<Vec2> path) =>
         new() { Id = from.Id, Name = from.Name, ThreadIndex = from.ThreadIndex, Visible = from.Visible, Path = path };

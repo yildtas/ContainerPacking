@@ -15,6 +15,12 @@ public sealed record ConnectionPolicy
     /// <summary>Always trim before a colour change.</summary>
     public bool TrimOnColorChange { get; init; } = true;
 
+    /// <summary>
+    /// Replace a jump/trim by a running stitch when the whole way lies under objects that are
+    /// sewn later (their stitching hides it). Mirrors how the FER-7 reference links its motifs.
+    /// </summary>
+    public bool HiddenTravel { get; init; } = true;
+
     /// <summary>Insert tie-in/tie-off intents around trims, colour changes and design start/end.</summary>
     public bool TieStitches { get; init; } = true;
 

@@ -20,21 +20,31 @@ public sealed class SatinGenerator : IStitchGenerator<SatinObject>
 
     public GenerationResult<LogicalStitchBlock> Generate(SatinObject item, GenerationContext context, CancellationToken ct = default)
     {
-        var built = SatinLadder.Build(item);
+        var built = SatinLadder.BuildColumns(item);
         var diagnostics = new List<Diagnostic>(built.Diagnostics);
-        if (built.Value is not { } ladder)
+        var columns = built.Value.ToList();
+        if (columns.Count == 0)
         {
             return new(new LogicalStitchBlock(BlockKind.Object, item.Id, item.ThreadIndex, []), diagnostics);
         }
 
-        if (context.EntryCandidate == 1) ladder = ladder.Reversed();
+        if (context.EntryCandidate == 1)
+        {
+            columns.Reverse();
+            columns = columns.Select(c => c.Reversed()).ToList();
+        }
 
         var p = item.Parameters;
         var stitches = new List<LogicalStitch>();
-        AddUnderlay(ladder, p.Underlay, stitches);
-        AddTop(ladder, p, stitches);
+        foreach (var column in columns)
+        {
+            // Pieces of a corner-split column follow each other: each ends at the corner the
+            // next one starts from.
+            AddUnderlay(column, p.Underlay, stitches);
+            AddTop(column, p, stitches);
+        }
 
-        var maxWidth = ladder.MaxWidth;
+        var maxWidth = columns.Max(c => c.MaxWidth);
         if (maxWidth > TatamiRecommendedAboveMm)
         {
             diagnostics.Add(Diagnostic.Warning("SAT003",
@@ -45,7 +55,7 @@ public sealed class SatinGenerator : IStitchGenerator<SatinObject>
         return new(new LogicalStitchBlock(BlockKind.Object, item.Id, item.ThreadIndex, stitches), diagnostics);
     }
 
-    private static void AddTop(SatinLadder baseLadder, SatinParameters p, List<LogicalStitch> output)
+    internal static void AddTop(SatinLadder baseLadder, SatinParameters p, List<LogicalStitch> output)
     {
         // Compensate first, then measure density on the compensated rails.
         var ladder = baseLadder.WithPullCompensation(p.PullCompensationMm);

@@ -37,6 +37,12 @@ public sealed record SatinParameters
 
     public ShortStitchMode ShortStitch { get; init; } = ShortStitchMode.InnerOnly;
 
+    /// <summary>
+    /// A centre-line column turning more sharply than this (degrees) at one point is split there
+    /// into two overlapping columns ("lap" corner) instead of folding. 180 disables splitting.
+    /// </summary>
+    public double CornerSplitAngleDeg { get; init; } = 60;
+
     /// <summary>Penetrations closer than this on the inner rail of a curve are shortened.</summary>
     public double ShortStitchThresholdMm { get; init; } = 0.25;
 
@@ -86,4 +92,35 @@ public sealed record TatamiUnderlay
     public double InsetMm { get; init; } = 0.8;
     public double RowSpacingMm { get; init; } = 2.0;
     public double StitchLengthMm { get; init; } = 3.0;
+}
+
+public enum TwistDirection
+{
+    /// <summary>Strands rise from the left edge to the right edge of the band.</summary>
+    S,
+
+    /// <summary>Mirror of S.</summary>
+    Z,
+}
+
+public sealed record RopeParameters
+{
+    /// <summary>Distance along the path between consecutive strands.</summary>
+    public double PitchMm { get; init; } = 3.0;
+
+    /// <summary>How far along the path one strand travels while crossing the band (slant).</summary>
+    public double StrandLengthMm { get; init; } = 6.0;
+
+    /// <summary>Satin density inside each strand (same-rail spacing).</summary>
+    public double SpacingMm { get; init; } = 0.35;
+
+    /// <summary>Strand thickness relative to the gap between strands; above 1 they overlap.</summary>
+    public double OverlapFactor { get; init; } = 1.15;
+
+    public TwistDirection Twist { get; init; } = TwistDirection.S;
+
+    public double PullCompensationMm { get; init; } = 0.15;
+
+    /// <summary>A running stitch along the band centre under the strands.</summary>
+    public bool CenterUnderlay { get; init; } = true;
 }

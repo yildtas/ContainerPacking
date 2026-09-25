@@ -8,6 +8,7 @@ public enum StitchType
     Run,
     Satin,
     Tatami,
+    Rope,
 }
 
 /// <summary>
@@ -18,6 +19,7 @@ public enum StitchType
 [JsonDerivedType(typeof(RunObject), "run")]
 [JsonDerivedType(typeof(SatinObject), "satin")]
 [JsonDerivedType(typeof(TatamiObject), "tatami")]
+[JsonDerivedType(typeof(RopeObject), "rope")]
 public abstract record EmbroideryObject
 {
     public required Guid Id { get; init; }
@@ -108,4 +110,28 @@ public sealed record TatamiObject : EmbroideryObject
 
     public override StitchType StitchType => StitchType.Tatami;
     public override Bounds Bounds => Region.Bounds;
+}
+
+/// <summary>
+/// A twisted-cord border ("halat"): a band of <see cref="WidthMm"/> along <see cref="Path"/>
+/// filled with slanted satin strands, like the borders of the FER-7 reference.
+/// </summary>
+public sealed record RopeObject : EmbroideryObject
+{
+    public required IReadOnlyList<Vec2> Path { get; init; }
+    public double WidthMm { get; init; } = 4.0;
+    public RopeParameters Parameters { get; init; } = new();
+
+    public override StitchType StitchType => StitchType.Rope;
+
+    public override Bounds Bounds
+    {
+        get
+        {
+            var b = Bounds.Of(Path);
+            if (b.IsEmpty) return b;
+            var h = WidthMm / 2;
+            return new Bounds(b.MinX - h, b.MinY - h, b.MaxX + h, b.MaxY + h);
+        }
+    }
 }
