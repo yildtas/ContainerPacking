@@ -156,10 +156,17 @@ public sealed class ProjectService
     public ExportResult ExportDst(Guid projectId, CancellationToken ct = default)
     {
         var design = Get(projectId);
+        var (encoded, plan) = Encode(design, ct);
+        return new ExportResult(DstWriter.Write(encoded), SafeFileName(design.Name) + ".dst", plan.Diagnostics);
+    }
+
+    /// <summary>Full pipeline for any design (open or not): validated plan and machine stream.</summary>
+    public (EncodedStitchPlan Encoded, LogicalStitchPlan Plan) Encode(Design design, CancellationToken ct = default)
+    {
+        Validate(design);
         var plan = BuildPlan(design, ct);
         var profile = MachineProfile.Find(design.MachineProfileId);
-        var encoded = MachineEncoder.Encode(plan, profile, design.Name);
-        return new ExportResult(DstWriter.Write(encoded), SafeFileName(design.Name) + ".dst", plan.Diagnostics);
+        return (MachineEncoder.Encode(plan, profile, design.Name), plan);
     }
 
     public ExportResult ExportEmbx(Guid projectId)

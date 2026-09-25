@@ -245,3 +245,6 @@ _Pvt_Extensions
 
 # Embroidery: web editor build output (produced by `npm run build` in web/embroidery-editor)
 src/Embroidery.Host/wwwroot/
+
+# Customer reference designs (golden fixtures) stay local
+fixtures/private/

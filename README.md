@@ -4,7 +4,7 @@ Yerel çalışan, profesyonel bir nakış digitizing uygulaması. SVG'yi düzenl
 
 ## Gereksinimler
 
-- .NET 8 SDK
+- .NET 10 SDK
 - Node.js 20+ (yalnızca arayüzü derlemek veya geliştirmek için)
 
 ## Çalıştırma
@@ -32,6 +32,31 @@ Host çalışırken ikinci bir terminalde:
 cd web/embroidery-editor
 npm run dev   # http://localhost:5173, /api istekleri host'a yönlendirilir
 ```
+
+## Komut satırı araçları
+
+```bash
+# SVG → DST, ölçüm raporu ve SVG önizleme
+dotnet run --project src/Embroidery.Tools -- convert tasarim.svg tasarim.dst --report rapor.json --preview onizleme.svg --fabric "#7A101C"
+
+# Bir DST'yi ölç (dikiş sayısı, boyut, satin genişliği/sıklığı, trim, düz dikiş payı)
+dotnet run --project src/Embroidery.Tools -- analyze referans.dst
+
+# Referans DST ile adayı karşılaştır (aday .dst veya .svg olabilir)
+dotnet run --project src/Embroidery.Tools -- compare referans.dst tasarim.svg
+
+# Deneme dikişi için kalibrasyon test sayfası (.dst + .embx + açıklama tablosu + önizleme)
+dotnet run --project src/Embroidery.Tools -- calibration cikti/
+```
+
+## Vektör teslim kuralı
+
+İnsan eliyle hazırlanan vektör Inkscape SVG olarak teslim edilir (ayrıntı: mimari belge §7, örnek: [`samples/damask-ornek.svg`](samples/damask-ornek.svg)):
+
+- **Sabit kalınlıklı kıvrım:** orta çizgi, `stroke-width` = satin genişliği. Sivri uçlar için `data-taper`, `data-taper-start`, `data-taper-end` (mm).
+- **Değişken genişlikli parça (yaprak, yıldız kolu):** iki kenar çizgisi + isteğe bağlı rung çizgileri tek path içinde; `inkstitch:satin_column="True"` veya `data-stitch="satin"`.
+- **Tür zorlama:** `data-stitch="run|satin|tatami"` (ör. kalıp kesim çizgisi `data-stitch="run"`).
+- İşaretsiz öğeler: dolgulu → Tatami, ≥1,2 mm çizgi → Satin, ince çizgi → Run.
 
 ## Testler
 
@@ -69,7 +94,7 @@ tests/                     birim ve format testleri
 
 MVP kapsamı tamam. Henüz yapılmayanlar (bkz. mimari belgesi, bölüm 29):
 
-- Rail/rung düzenleme ve medial-axis ile otomatik satin kolonu çıkarımı
+- Tuval üzerinde rail/rung sürükleyerek düzenleme; dolu konturdan otomatik satin kolonu çıkarımı
 - Satin köşe stratejileri (fan, mitre)
 - Kapsama durumunu bilen (A*) travel yolu ve dikiş sırası optimizasyonu
 - Üst üste binen nesnelerde alttaki dikişlerin çıkarılması
