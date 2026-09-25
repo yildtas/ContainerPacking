@@ -144,6 +144,10 @@ public static class PolygonOps
         return Math.Abs(Clipper.Area(Clipper.Intersect(ia, ib, Clipper2Lib.FillRule.NonZero)));
     }
 
+    /// <summary>The part of <paramref name="a"/> inside <paramref name="b"/>.</summary>
+    public static Region Intersection(Region a, Region b) =>
+        FromClipper(Clipper.Intersect(ToClipper(Normalize(a)), ToClipper(Normalize(b)), Clipper2Lib.FillRule.NonZero));
+
     /// <summary>Union of several regions (each resolved with its own fill rule first).</summary>
     public static Region Union(IEnumerable<Region> regions)
     {

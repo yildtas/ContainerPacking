@@ -4,10 +4,13 @@ using Embroidery.Application.Projects;
 using Embroidery.Core.Diagnostics;
 using Embroidery.Core.Model;
 using Embroidery.Core.Objects;
+using Embroidery.Core.Primitives;
 using Embroidery.Geometry.Svg;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Embroidery.Host;
+
+public sealed record SplitRequest(double X, double Y);
 
 public sealed record ImportSvgRequest(string FileName, string Svg, double? TargetWidthMm, string? StitchProfileId);
 public sealed record ConvertRequest(StitchType Type);
@@ -79,6 +82,9 @@ public static class ApiEndpoints
 
         api.MapPost("/{id:guid}/objects/{objectId:guid}/convert", (Guid id, Guid objectId, ConvertRequest body, HttpRequest http, ProjectService projects) =>
             Results.Ok(State(projects, projects.ConvertObject(id, Revision(http), objectId, body.Type))));
+
+        api.MapPost("/{id:guid}/objects/{objectId:guid}/split", (Guid id, Guid objectId, SplitRequest body, HttpRequest http, ProjectService projects) =>
+            Results.Ok(State(projects, projects.SplitObject(id, Revision(http), objectId, new Vec2(body.X, body.Y)))));
 
         api.MapDelete("/{id:guid}/objects/{objectId:guid}", (Guid id, Guid objectId, HttpRequest http, ProjectService projects) =>
             Results.Ok(State(projects, projects.DeleteObject(id, Revision(http), objectId))));

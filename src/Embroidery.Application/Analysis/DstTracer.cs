@@ -254,7 +254,9 @@ public static class DstTracer
             {
                 walked += Vec2.Distance(fullPairs[j - 1].A, fullPairs[j].A);
                 if (walked < next) continue;
-                rungs.Add(new Rung(fullPairs[j].A, fullPairs[j].B));
+                var rung = new Rung(fullPairs[j].A, fullPairs[j].B);
+                if (rungs.Count > 0 && Crosses(rungs[^1], rung)) continue; // throws at a sharp turn fan out
+                rungs.Add(rung);
                 next = walked + 3;
             }
         }
@@ -269,5 +271,11 @@ public static class DstTracer
             RailB = PolygonOps.SimplifyPath(b, 0.05),
             Rungs = rungs,
         };
+    }
+
+    private static bool Crosses(Rung p, Rung q)
+    {
+        static double Side(Vec2 a, Vec2 b, Vec2 c) => Vec2.Cross(b - a, c - a);
+        return Side(p.A, p.B, q.A) * Side(p.A, p.B, q.B) < 0 && Side(q.A, q.B, p.A) * Side(q.A, q.B, p.B) < 0;
     }
 }

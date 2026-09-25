@@ -113,6 +113,13 @@ export interface StitchProfile {
   id: string;
   name: string;
   description: string;
+  satinSpacingMm: number;
+  satinPullMm: number;
+  tatamiRowSpacingMm: number;
+  tatamiStitchLengthMm: number;
+  tatamiPullMm: number;
+  runStitchLengthMm: number;
+  ropeSpacingMm: number;
 }
 
 export interface EmbroideryThread {

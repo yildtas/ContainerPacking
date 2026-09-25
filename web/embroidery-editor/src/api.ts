@@ -70,6 +70,9 @@ export const api = {
   convertObject: (id: string, revision: number, objectId: string, type: StitchType) =>
     request(`/${id}/objects/${objectId}/convert`, { method: "POST", revision, body: JSON.stringify({ type }) }).then(json<ProjectState>),
 
+  splitObject: (id: string, revision: number, objectId: string, at: [number, number]) =>
+    request(`/${id}/objects/${objectId}/split`, { method: "POST", revision, body: JSON.stringify({ x: at[0], y: at[1] }) }).then(json<ProjectState>),
+
   deleteObject: (id: string, revision: number, objectId: string) =>
     request(`/${id}/objects/${objectId}`, { method: "DELETE", revision }).then(json<ProjectState>),
 
@@ -83,6 +86,9 @@ export const api = {
     request(`/${id}/settings`, { method: "PUT", revision, body: JSON.stringify(settings) }).then(json<ProjectState>),
 
   profiles: () => request("/api/profiles", { root: "" }).then(json<{ stitch: StitchProfile[]; hoops: Hoop[] }>),
+
+  saveProfile: (profile: StitchProfile) =>
+    request("/api/profiles", { root: "", method: "POST", body: JSON.stringify(profile) }).then(json<StitchProfile>),
 
   applyProfile: (id: string, revision: number, profileId: string) =>
     request(`/${id}/profile`, { method: "PUT", revision, body: JSON.stringify({ profileId }) }).then(json<ProjectState>),

@@ -3,6 +3,7 @@ import { api, ApiError } from "./api";
 import { ObjectList } from "./components/ObjectList";
 import { PropertiesPanel } from "./components/PropertiesPanel";
 import { SimulatorBar } from "./components/SimulatorBar";
+import { ProfileForm } from "./components/ProfileForm";
 import { StitchCanvas } from "./components/StitchCanvas";
 import { ThreadPanel } from "./components/ThreadPanel";
 import { buildSimulation } from "./simulation";
@@ -283,6 +284,22 @@ export function App() {
                   ))}
                 </select>
               </label>
+              {profiles.some((p) => p.id === design.stitchProfileId) && (
+                <ProfileForm
+                  base={profiles.find((p) => p.id === design.stitchProfileId)!}
+                  onSave={async (profile) => {
+                    try {
+                      const saved = await api.saveProfile(profile);
+                      setProfiles((await api.profiles()).stitch);
+                      await run((d) => api.applyProfile(d.id, d.revision, saved.id));
+                      notify(`"${saved.name}" profili kaydedildi ve uygulandı.`);
+                    } catch (e) {
+                      notify((e as Error).message, true);
+                      throw e;
+                    }
+                  }}
+                />
+              )}
               <div className="button-row">
                 <button onClick={() => run((d) => api.mirror(d.id, d.revision, "horizontal"))} title="Sol/sağ panel için yatay ayna">
                   Ayna ↔
@@ -349,6 +366,8 @@ export function App() {
           showJumps={showJumps}
           background={fabric}
           onSelect={setSelectedId}
+          onEdit={(item) => run((d) => api.updateObject(d.id, d.revision, item))}
+          onSplit={(objectId, at) => run((d) => api.splitObject(d.id, d.revision, objectId, at))}
         />
         <div className="stage-footer">
           <SimulatorBar

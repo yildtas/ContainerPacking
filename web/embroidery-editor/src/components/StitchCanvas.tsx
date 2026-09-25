@@ -1,6 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { SegmentKind, type Simulation } from "../simulation";
 import type { Design, EmbroideryObject, Vec2 } from "../types";
+import {
+  addRung,
+  dragVertex,
+  handles,
+  removeRung,
+  setEntryPoint,
+  translateObject,
+  type Handle,
+} from "../editing";
+
+export type Tool = "select" | "move" | "nodes" | "rungAdd" | "rungRemove" | "entry" | "split";
+
+const TOOLS: { id: Tool; label: string; title: string; satinRailsOnly?: boolean }[] = [
+  { id: "select", label: "Seç", title: "Tıkla: nesne seç, sürükle: kaydır" },
+  { id: "move", label: "Taşı", title: "Seçili nesneyi sürükleyerek taşı" },
+  { id: "nodes", label: "Düğüm", title: "Kolları sürükle; yakındaki noktalar yumuşak geçişle takip eder" },
+  { id: "rungAdd", label: "Rung +", title: "Tıklanan yerden iki rayı birleştiren rung ekle", satinRailsOnly: true },
+  { id: "rungRemove", label: "Rung −", title: "Tıklanan yere en yakın rung'u sil", satinRailsOnly: true },
+  { id: "entry", label: "Giriş", title: "Nesnenin dikişe başlayacağı noktayı seç" },
+  { id: "split", label: "Böl", title: "Nesneyi tıklanan noktadan ikiye böl" },
+];
 
 interface Props {
   sim: Simulation | null;
@@ -13,7 +34,16 @@ interface Props {
   /** Fabric colour behind the stitches. */
   background: string;
   onSelect: (objectId: string | null) => void;
+  /** Commits an edited object (move, node drag, rungs, entry point). */
+  onEdit?: (item: EmbroideryObject) => void;
+  /** Splits the object at a point (done on the server). */
+  onSplit?: (objectId: string, at: Vec2) => void;
 }
+
+type Gesture =
+  | { kind: "pan"; x: number; y: number; vx: number; vy: number; moved: boolean }
+  | { kind: "move"; x: number; y: number; start: Vec2; original: EmbroideryObject; moved: boolean }
+  | { kind: "node"; x: number; y: number; start: Vec2; handle: Handle; original: EmbroideryObject; moved: boolean };
 
 interface View {
   scale: number; // px per mm
@@ -31,6 +61,11 @@ function shade(hex: string, factor: number): string {
   return `rgb(${r},${g},${b})`;
 }
 
+/** Handle spacing: about 14 px on screen, never below 0.5 mm. */
+function handleSpacing(scale: number) {
+  return Math.max(0.5, 14 / scale);
+}
+
 function objectOutlines(o: EmbroideryObject): Vec2[][] {
   switch (o.type) {
     case "run":
@@ -44,13 +79,19 @@ function objectOutlines(o: EmbroideryObject): Vec2[][] {
   }
 }
 
-export function StitchCanvas({ sim, colors, design, selectedId, progress, showJumps, background, onSelect }: Props) {
+export function StitchCanvas({ sim, colors, design, selectedId, progress, showJumps, background, onSelect, onEdit, onSplit }: Props) {
+  const [tool, setTool] = useState<Tool>("select");
+  const [falloffMm, setFalloffMm] = useState(3);
+  const [draft, setDraft] = useState<EmbroideryObject | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 800, h: 600 });
   const [view, setView] = useState<View>({ scale: 4, x: 40, y: 40 });
   const fittedFor = useRef<string | null>(null);
-  const drag = useRef<{ x: number; y: number; vx: number; vy: number; moved: boolean } | null>(null);
+  const drag = useRef<Gesture | null>(null);
+
+  // A committed edit comes back as a new design: drop the local draft then.
+  useEffect(() => setDraft(null), [design]);
 
   useEffect(() => {
     const el = wrapRef.current;
@@ -159,8 +200,8 @@ export function StitchCanvas({ sim, colors, design, selectedId, progress, showJu
       }
     }
 
-    // Selected object's source geometry.
-    const selected = design.objects.find((o) => o.id === selectedId);
+    // Selected object's source geometry (the draft while dragging).
+    const selected = draft ?? design.objects.find((o) => o.id === selectedId);
     if (selected) {
       ctx.save();
       ctx.strokeStyle = "#e0457b";
@@ -169,6 +210,25 @@ export function StitchCanvas({ sim, colors, design, selectedId, progress, showJu
       for (const line of objectOutlines(selected)) {
         ctx.beginPath();
         line.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(X(x), Y(y)) : ctx.lineTo(X(x), Y(y))));
+        ctx.stroke();
+      }
+      if (tool === "nodes") {
+        ctx.fillStyle = "#fff";
+        for (const h of handles(selected, handleSpacing(view.scale))) {
+          ctx.beginPath();
+          ctx.rect(X(h.point[0]) - 4, Y(h.point[1]) - 4, 8, 8);
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+      if (selected.entryPoint) {
+        const [ex, ey] = selected.entryPoint;
+        ctx.fillStyle = "#1f9d55";
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(X(ex), Y(ey), 6, 0, Math.PI * 2);
+        ctx.fill();
         ctx.stroke();
       }
       ctx.restore();
@@ -187,7 +247,7 @@ export function StitchCanvas({ sim, colors, design, selectedId, progress, showJu
       ctx.stroke();
       ctx.restore();
     }
-  }, [sim, colors, design, selectedId, progress, showJumps, background, view, size]);
+  }, [sim, colors, design, selectedId, progress, showJumps, background, view, size, draft, tool]);
 
   const toMm = (e: { clientX: number; clientY: number }) => {
     const rect = canvasRef.current!.getBoundingClientRect();
@@ -217,8 +277,41 @@ export function StitchCanvas({ sim, colors, design, selectedId, progress, showJu
     return hit < 0 ? null : sim.objectIds[sim.object[hit]];
   };
 
+  const selectedObject = design?.objects.find((o) => o.id === selectedId) ?? null;
+  const railsSatin = selectedObject?.type === "satin" && selectedObject.source === "rails";
   return (
-    <div className="canvas-wrap" ref={wrapRef}>
+    <div
+      className="canvas-wrap"
+      ref={wrapRef}
+      data-tool={tool}
+      data-design={design?.id}
+      data-view={`${view.scale} ${view.x} ${view.y}`}
+    >
+      <div className="canvas-tools" role="toolbar" aria-label="Düzenleme araçları">
+        {TOOLS.map((t) => (
+          <button
+            key={t.id}
+            className={tool === t.id ? "active" : ""}
+            title={t.title}
+            aria-pressed={tool === t.id}
+            disabled={t.id !== "select" && (!selectedObject || (t.satinRailsOnly && !railsSatin))}
+            onClick={() => setTool(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+        {tool === "nodes" && (
+          <label className="falloff" title="Sürüklenen noktanın çevresinde bu uzunluk boyunca noktalar yumuşak geçişle takip eder">
+            Etki {falloffMm} mm
+            <input type="range" min={0} max={15} step={0.5} value={falloffMm} onChange={(e) => setFalloffMm(Number(e.target.value))} />
+          </label>
+        )}
+        {tool === "entry" && selectedObject?.entryPoint && (
+          <button onClick={() => onEdit?.(setEntryPoint(selectedObject, null))} title="Giriş noktasını otomatiğe döndür">
+            Girişi sıfırla
+          </button>
+        )}
+      </div>
       <canvas
         ref={canvasRef}
         style={{ width: size.w, height: size.h }}
@@ -235,22 +328,64 @@ export function StitchCanvas({ sim, colors, design, selectedId, progress, showJu
         }}
         onPointerDown={(e) => {
           (e.target as Element).setPointerCapture(e.pointerId);
-          drag.current = { x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
+          const [mx, my] = toMm(e);
+          const current = design?.objects.find((o) => o.id === selectedId);
+          if (current && tool === "move") {
+            drag.current = { kind: "move", x: e.clientX, y: e.clientY, start: [mx, my], original: current, moved: false };
+            return;
+          }
+          if (current && tool === "nodes") {
+            const grab = 10 / view.scale;
+            let best: Handle | null = null;
+            let bestD = grab;
+            for (const h of handles(current, handleSpacing(view.scale))) {
+              const d = Math.hypot(h.point[0] - mx, h.point[1] - my);
+              if (d <= bestD) {
+                bestD = d;
+                best = h;
+              }
+            }
+            if (best) {
+              drag.current = { kind: "node", x: e.clientX, y: e.clientY, start: [mx, my], handle: best, original: current, moved: false };
+              return;
+            }
+          }
+          drag.current = { kind: "pan", x: e.clientX, y: e.clientY, vx: view.x, vy: view.y, moved: false };
         }}
         onPointerMove={(e) => {
           const d = drag.current;
           if (!d) return;
           const dx = e.clientX - d.x, dy = e.clientY - d.y;
           if (Math.abs(dx) + Math.abs(dy) > 3) d.moved = true;
-          if (d.moved) setView((v) => ({ ...v, x: d.vx + dx, y: d.vy + dy }));
+          if (!d.moved) return;
+          if (d.kind === "pan") {
+            setView((v) => ({ ...v, x: d.vx + dx, y: d.vy + dy }));
+            return;
+          }
+          const [mx, my] = toMm(e);
+          const ddx = mx - d.start[0], ddy = my - d.start[1];
+          setDraft(
+            d.kind === "move"
+              ? translateObject(d.original, ddx, ddy)
+              : dragVertex(d.original, d.handle.ref, d.handle.index, ddx, ddy, falloffMm),
+          );
         }}
         onPointerUp={(e) => {
           const d = drag.current;
           drag.current = null;
-          if (d && !d.moved) {
-            const [mx, my] = toMm(e);
-            onSelect(pick(mx, my));
+          if (!d) return;
+          if (d.moved) {
+            if (d.kind !== "pan" && draft) onEdit?.(draft);
+            return;
           }
+          const [mx, my] = toMm(e);
+          const p: Vec2 = [mx, my];
+          const current = design?.objects.find((o) => o.id === selectedId);
+          if (current && tool === "rungAdd" && current.type === "satin") onEdit?.(addRung(current, p));
+          else if (current && tool === "rungRemove" && current.type === "satin") onEdit?.(removeRung(current, p, 10 / view.scale));
+          else if (current && tool === "entry") onEdit?.(setEntryPoint(current, p));
+          else if (current && tool === "split") onSplit?.(current.id, p);
+          else onSelect(pick(mx, my));
         }}
       />
       <button className="fit-button" onClick={fit} title="Tasarımı sığdır">

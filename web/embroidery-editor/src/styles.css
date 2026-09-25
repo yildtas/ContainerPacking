@@ -536,3 +536,63 @@ legend {
   text-transform: none;
   letter-spacing: 0;
 }
+
+.canvas-tools {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  max-width: calc(100% - 90px);
+  z-index: 2;
+}
+
+.canvas-tools button {
+  padding: 4px 9px;
+  font-size: 12px;
+}
+
+.canvas-tools button.active {
+  background: var(--accent, #e0457b);
+  border-color: var(--accent, #e0457b);
+  color: #fff;
+}
+
+.canvas-tools .falloff {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.canvas-wrap[data-tool="move"] canvas {
+  cursor: move;
+}
+
+.canvas-wrap[data-tool="rungAdd"] canvas,
+.canvas-wrap[data-tool="rungRemove"] canvas,
+.canvas-wrap[data-tool="entry"] canvas,
+.canvas-wrap[data-tool="split"] canvas,
+.canvas-wrap[data-tool="nodes"] canvas {
+  cursor: crosshair;
+}
+
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border, #ccc);
+  border-radius: 6px;
+}
+
+.profile-form .hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger, #b00020);
+}

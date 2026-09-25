@@ -7,6 +7,7 @@ using Embroidery.Application.Preview;
 using Embroidery.Core.Diagnostics;
 using Embroidery.Core.Model;
 using Embroidery.Core.Objects;
+using Embroidery.Core.Primitives;
 using Embroidery.Core.StitchPlan;
 using Embroidery.Formats;
 using Embroidery.Formats.Dst;
@@ -144,6 +145,20 @@ public sealed class ProjectService
             objects.RemoveAt(index);
             objects.InsertRange(index, converted);
             return d with { Objects = objects };
+        });
+
+    /// <summary>Splits an object in two at a point; the second half follows the first in sew order.</summary>
+    public Design SplitObject(Guid projectId, long? expectedRevision, Guid objectId, Vec2 at) =>
+        Session(projectId).Apply(expectedRevision, d =>
+        {
+            var index = IndexOf(d, objectId);
+            var (first, second) = ObjectEditing.Split(d.Objects[index], at);
+            var objects = d.Objects.ToList();
+            objects[index] = first;
+            objects.Insert(index + 1, second);
+            var next = d with { Objects = objects };
+            Validate(next);
+            return next;
         });
 
     public Design DeleteObject(Guid projectId, long? expectedRevision, Guid objectId) =>
