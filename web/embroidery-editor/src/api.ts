@@ -79,6 +79,9 @@ export const api = {
   applyProfile: (id: string, revision: number, profileId: string) =>
     request(`/${id}/profile`, { method: "PUT", revision, body: JSON.stringify({ profileId }) }).then(json<ProjectState>),
 
+  optimizeOrder: (id: string, revision: number) =>
+    request(`/${id}/optimize-order`, { method: "POST", revision }).then(json<ProjectState>),
+
   mirror: (id: string, revision: number, axis: "horizontal" | "vertical") =>
     request(`/${id}/mirror`, { method: "POST", revision, body: JSON.stringify({ axis }) }).then(json<ProjectState>),
 

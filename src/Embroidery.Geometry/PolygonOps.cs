@@ -136,6 +136,14 @@ public static class PolygonOps
         return FromClipper(Clipper.Union(result, Clipper2Lib.FillRule.NonZero));
     }
 
+    /// <summary>Area shared by two regions (each resolved with its own fill rule).</summary>
+    public static double IntersectionArea(Region a, Region b)
+    {
+        var ia = ToClipper(Normalize(a));
+        var ib = ToClipper(Normalize(b));
+        return Math.Abs(Clipper.Area(Clipper.Intersect(ia, ib, Clipper2Lib.FillRule.NonZero)));
+    }
+
     /// <summary>
     /// Removes vertices that deviate less than <paramref name="toleranceMm"/> from the outline
     /// (Ramer–Douglas–Peucker). For coarse spatial queries, not for stitch geometry.

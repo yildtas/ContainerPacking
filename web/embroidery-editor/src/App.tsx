@@ -263,7 +263,23 @@ export function App() {
               </div>
             </section>
             <section className="grow">
-              <h2>Dikiş sırası</h2>
+              <h2>
+                Dikiş sırası
+                <button
+                  className="link-button small"
+                  title="Üst üste binen nesnelerin sırasını koruyarak renk değişimini ve boş hareketi azaltır"
+                  onClick={() =>
+                    run(async (d) => {
+                      const state = await api.optimizeOrder(d.id, d.revision);
+                      const info = state.diagnostics.find((x) => x.code === "SEQ001");
+                      if (info) notify(info.message);
+                      return state;
+                    })
+                  }
+                >
+                  Optimize et
+                </button>
+              </h2>
               <ObjectList
                 design={design}
                 selectedId={selectedId}

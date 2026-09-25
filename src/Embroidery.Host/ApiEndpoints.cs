@@ -82,6 +82,15 @@ public static class ApiEndpoints
         api.MapPut("/{id:guid}/settings", (Guid id, SettingsRequest body, HttpRequest http, ProjectService projects) =>
             Results.Ok(State(projects, projects.UpdateSettings(id, Revision(http), body.Hoop, body.Connections, body.Name))));
 
+        api.MapPost("/{id:guid}/optimize-order", (Guid id, HttpRequest http, ProjectService projects) =>
+        {
+            var (design, r) = projects.OptimizeOrder(id, Revision(http));
+            var message = r.Improved
+                ? FormattableString.Invariant($"Order optimised: colour changes {r.Before.ColorChanges} → {r.After.ColorChanges}, frame travel {r.Before.TravelMm:0} → {r.After.TravelMm:0} mm ({r.Constraints} stacking constraints kept).")
+                : "The current order is already as good as the optimiser can make it.";
+            return Results.Ok(State(projects, design, [Diagnostic.Info("SEQ001", message)]));
+        });
+
         api.MapPost("/{id:guid}/mirror", (Guid id, MirrorRequest body, HttpRequest http, ProjectService projects) =>
             Results.Ok(State(projects, projects.Mirror(id, Revision(http), body.Axis))));
 

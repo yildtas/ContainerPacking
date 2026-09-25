@@ -529,3 +529,10 @@ legend {
   gap: 6px;
   margin-top: 4px;
 }
+
+.link-button.small {
+  margin-left: auto;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}

@@ -148,6 +148,23 @@ public sealed class ProjectService
             Name = string.IsNullOrWhiteSpace(name) ? d.Name : name.Trim(),
         });
 
+    /// <summary>
+    /// Reorders objects to cut colour changes and travel without breaking the stacking of
+    /// overlapping objects. Applied (as one undoable step) only when it lowers the cost.
+    /// </summary>
+    public (Design Design, SequenceResult Result) OptimizeOrder(Guid projectId, long? expectedRevision)
+    {
+        SequenceResult? result = null;
+        var design = Session(projectId).Apply(expectedRevision, d =>
+        {
+            result = SequenceOptimizer.Optimize(d);
+            if (!result.Improved) return d;
+            var byId = d.Objects.ToDictionary(o => o.Id);
+            return d with { Objects = result.Order.Select(id => byId[id]).ToList() };
+        });
+        return (design, result!);
+    }
+
     public Design Mirror(Guid projectId, long? expectedRevision, MirrorAxis axis) =>
         Session(projectId).Apply(expectedRevision, d => DesignTransforms.Mirror(d, axis));
 

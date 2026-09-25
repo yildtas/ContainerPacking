@@ -13,7 +13,7 @@ using Embroidery.Machine;
 // Usage is printed when arguments are missing.
 
 const string Usage = """
-    embroidery convert <in.svg> <out.dst> [--width mm] [--profile id] [--profiles dir] [--mirror h|v] [--hoop WxH]
+    embroidery convert <in.svg> <out.dst> [--width mm] [--profile id] [--profiles dir] [--mirror h|v] [--hoop WxH] [--optimize]
                        [--report r.json] [--preview p.svg] [--fabric #RRGGBB]
     embroidery analyze <in.dst> [--report r.json] [--preview p.svg] [--fabric #RRGGBB] [--thread #RRGGBB]
     embroidery compare <reference.dst> <candidate.dst|candidate.svg>
@@ -95,6 +95,15 @@ static int Convert(string input, string output, Dictionary<string, string> optio
             "v" => MirrorAxis.Vertical,
             _ => throw new ArgumentException("--mirror must be h or v."),
         });
+    }
+
+    if (options.ContainsKey("optimize"))
+    {
+        var (optimized, r) = service.OptimizeOrder(design.Id, null);
+        design = optimized;
+        Console.WriteLine(r.Improved
+            ? $"  order optimised: colour changes {r.Before.ColorChanges} -> {r.After.ColorChanges}, travel {r.Before.TravelMm:0} -> {r.After.TravelMm:0} mm"
+            : "  order already optimal");
     }
 
     if (options.TryGetValue("hoop", out var hoopText))
@@ -207,10 +216,12 @@ static void Print(string name, StitchMetrics m)
 static Dictionary<string, string> Options(string[] args, int start)
 {
     var options = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-    for (var i = start; i + 1 < args.Length; i += 2)
+    for (var i = start; i < args.Length; i++)
     {
         if (!args[i].StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException($"Unexpected argument '{args[i]}'.");
-        options[args[i][2..]] = args[i + 1];
+        // A flag followed by another flag (or nothing) has no value.
+        var hasValue = i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal);
+        options[args[i][2..]] = hasValue ? args[++i] : "true";
     }
 
     return options;
