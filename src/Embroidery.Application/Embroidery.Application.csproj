@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Embroidery.Core/Embroidery.Core.csproj" />
+    <ProjectReference Include="../Embroidery.Geometry/Embroidery.Geometry.csproj" />
+    <ProjectReference Include="../Embroidery.StitchEngine/Embroidery.StitchEngine.csproj" />
+    <ProjectReference Include="../Embroidery.Machine/Embroidery.Machine.csproj" />
+    <ProjectReference Include="../Embroidery.Formats/Embroidery.Formats.csproj" />
+  </ItemGroup>
+</Project>

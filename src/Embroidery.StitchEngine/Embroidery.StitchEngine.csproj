@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Embroidery.Core/Embroidery.Core.csproj" />
+    <ProjectReference Include="../Embroidery.Geometry/Embroidery.Geometry.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Embroidery.Core/Embroidery.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Boost Software License 1.0 -->
+    <PackageReference Include="Clipper2" Version="1.4.0" />
+  </ItemGroup>
+</Project>
