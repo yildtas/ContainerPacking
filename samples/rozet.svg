@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="80mm" height="60mm" viewBox="0 0 80 60">
+  <!-- Filled shapes become Tatami, thick strokes Satin, thin strokes Run. -->
+  <circle cx="30" cy="30" r="22" fill="#1f5fa8"/>
+  <path d="M30 14 L34 25 L46 25 L36 32 L40 44 L30 36 L20 44 L24 32 L14 25 L26 25 Z" fill="#f2c230"/>
+  <circle cx="30" cy="30" r="25" fill="none" stroke="#c0282d" stroke-width="2.5"/>
+  <path d="M58 10 C72 18 60 34 74 50" fill="none" stroke="#2f8f4e" stroke-width="3"/>
+  <path d="M56 54 L78 54" fill="none" stroke="#222222" stroke-width="0.3"/>
+</svg>

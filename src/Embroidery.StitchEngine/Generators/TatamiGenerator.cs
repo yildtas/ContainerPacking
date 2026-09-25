@@ -162,8 +162,10 @@ internal sealed class TatamiFill(
                 var pts = RowPenetrations(row, leftToRight);
                 if (last is { } l && Vec2.Distance(l, pts[0]) > stitchLength)
                 {
-                    // Row-to-row step along a slanted edge: keep stitches short.
-                    foreach (var q in RunSampler.Sample([l, pts[0]], stitchLength).Skip(1).SkipLast(1))
+                    // Row-to-row step along a slanted edge: follow the edge on concave parts
+                    // and keep stitches short.
+                    var route = Route(local, l, pts[0]) ?? [l, pts[0]];
+                    foreach (var q in RunSampler.Sample(route, stitchLength).Skip(1).SkipLast(1))
                     {
                         localOutput.Add(new(q, StitchCommand.Stitch, layer));
                     }
@@ -183,16 +185,19 @@ internal sealed class TatamiFill(
     }
 
     /// <summary>
-    /// Connects two points inside a fill: a hidden travel run when the straight path stays
-    /// inside the region, otherwise a jump. Returns 1 when a jump was needed.
+    /// Connects two points inside a fill. Preference: straight travel when it stays inside the
+    /// region, then travel along the boundary ring both points lie on, then a jump.
+    /// Returns 1 when a jump was needed.
     /// </summary>
     public static int Connect(Region region, Vec2 from, Vec2 to, StitchLayer layer, List<LogicalStitch> output)
     {
         var distance = Vec2.Distance(from, to);
         if (distance < 1e-6) return 0;
-        if (distance <= TravelStitchLength || PolygonOps.SegmentInside(region, from, to))
+
+        var route = distance <= TravelStitchLength ? [from, to] : Route(region, from, to);
+        if (route is not null)
         {
-            foreach (var q in RunSampler.Sample([from, to], TravelStitchLength).Skip(1).SkipLast(1))
+            foreach (var q in RunSampler.Sample(route, TravelStitchLength, 30).Skip(1).SkipLast(1))
             {
                 output.Add(new(q, StitchCommand.Travel, layer));
             }
@@ -202,6 +207,82 @@ internal sealed class TatamiFill(
 
         output.Add(new(to, StitchCommand.Jump, layer));
         return 1;
+    }
+
+    /// <summary>A path from <paramref name="from"/> to <paramref name="to"/> that stays in the region: straight or along its boundary.</summary>
+    private static IReadOnlyList<Vec2>? Route(Region region, Vec2 from, Vec2 to) =>
+        PolygonOps.SegmentInside(region, from, to) ? [from, to] : BoundaryRoute(region, from, to);
+
+    /// <summary>How far a point may be from a ring to count as "on" it (row ends sit near the edge).</summary>
+    private const double BoundarySnapMm = 2.0;
+
+    /// <summary>Shortest walk along a ring both points are near, or null when there is none.</summary>
+    private static List<Vec2>? BoundaryRoute(Region region, Vec2 from, Vec2 to)
+    {
+        List<Vec2>? best = null;
+        var bestLength = double.PositiveInfinity;
+        foreach (var ring in region.Rings)
+        {
+            if (ring.Count < 3) continue;
+            var a = Project(ring, from);
+            var b = Project(ring, to);
+            if (a.Distance > BoundarySnapMm || b.Distance > BoundarySnapMm) continue;
+
+            foreach (var forward in new[] { true, false })
+            {
+                var path = new List<Vec2> { from, a.Point };
+                AppendRingVertices(ring, a, b, forward, path);
+                path.Add(b.Point);
+                path.Add(to);
+                var length = 0.0;
+                for (var i = 1; i < path.Count; i++) length += Vec2.Distance(path[i - 1], path[i]);
+                if (length < bestLength) (best, bestLength) = (path, length);
+            }
+        }
+
+        return best;
+    }
+
+    private readonly record struct RingPoint(int Segment, double T, Vec2 Point, double Distance);
+
+    private static RingPoint Project(IReadOnlyList<Vec2> ring, Vec2 p)
+    {
+        var best = new RingPoint(0, 0, ring[0], double.PositiveInfinity);
+        for (var k = 0; k < ring.Count; k++)
+        {
+            var s = ring[k];
+            var e = ring[(k + 1) % ring.Count];
+            var d = e - s;
+            var t = d.LengthSquared < 1e-18 ? 0 : Math.Clamp(Vec2.Dot(p - s, d) / d.LengthSquared, 0, 1);
+            var q = s + d * t;
+            var dist = Vec2.Distance(p, q);
+            if (dist < best.Distance) best = new RingPoint(k, t, q, dist);
+        }
+
+        return best;
+    }
+
+    /// <summary>Ring vertices strictly between two projected points, walking forward or backward.</summary>
+    private static void AppendRingVertices(IReadOnlyList<Vec2> ring, RingPoint a, RingPoint b, bool forward, List<Vec2> path)
+    {
+        var n = ring.Count;
+        if (a.Segment == b.Segment && (forward ? a.T <= b.T : a.T >= b.T)) return;
+        if (forward)
+        {
+            for (int k = (a.Segment + 1) % n, guard = 0; guard < n; k = (k + 1) % n, guard++)
+            {
+                path.Add(ring[k]);
+                if (k == b.Segment) return;
+            }
+        }
+        else
+        {
+            for (int k = a.Segment, guard = 0; guard < n; k = (k - 1 + n) % n, guard++)
+            {
+                path.Add(ring[k]);
+                if (k == (b.Segment + 1) % n) return;
+            }
+        }
     }
 
     private List<Section> BuildSections(Region local, CancellationToken ct)

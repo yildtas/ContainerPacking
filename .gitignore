@@ -242,3 +242,6 @@ _Pvt_Extensions
 # FAKE - F# Make
 .fake/
 
+
+# Embroidery: web editor build output (produced by `npm run build` in web/embroidery-editor)
+src/Embroidery.Host/wwwroot/

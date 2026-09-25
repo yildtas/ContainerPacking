@@ -179,6 +179,34 @@ public class GeneratorTests
     }
 
     [Fact]
+    public void Convex_fill_with_underlay_and_pull_compensation_needs_no_jumps()
+    {
+        var circle = Embroidery.Geometry.Svg.SvgPathParser.Parse("M8,30 A22,22 0 1 0 52,30 A22,22 0 1 0 8,30 Z", Matrix2D.Identity);
+        var item = Fill(new Region([circle[0].Points]), new TatamiParameters { PullCompensationMm = 0.2 });
+        var result = new TatamiGenerator().Generate(item, Start);
+        Assert.DoesNotContain(result.Value.Stitches, s => s.Command == StitchCommand.Jump);
+        Assert.DoesNotContain(result.Diagnostics, d => d.Code == "TAT002");
+    }
+
+    [Fact]
+    public void Concave_fill_travels_along_the_boundary_instead_of_jumping()
+    {
+        // A "U": rows split into two arms, so sections must be connected around the bend.
+        var u = new Region([new Vec2[] { new(0, 0), new(30, 0), new(30, 30), new(20, 30), new(20, 10), new(10, 10), new(10, 30), new(0, 30) }]);
+        var star = Embroidery.Geometry.Svg.SvgPathParser.Parse("M30 14 L34 25 L46 25 L36 32 L40 44 L30 36 L20 44 L24 32 L14 25 L26 25 Z", Matrix2D.Identity);
+        foreach (var region in new[] { u, new Region([star[0].Points]) })
+        {
+            foreach (var angle in new[] { 0.0, 45, 90 })
+            {
+                var result = new TatamiGenerator().Generate(Fill(region, new TatamiParameters { AngleDeg = angle }), Start);
+                Assert.DoesNotContain(result.Diagnostics, d => d.Code == "TAT002");
+                var tolerant = PolygonOps.Offset(region, 0.3);
+                Assert.All(result.Value.Stitches, s => Assert.True(PolygonOps.Contains(tolerant, s.Position), $"{s.Position} outside at {angle}°"));
+            }
+        }
+    }
+
+    [Fact]
     public void Satin_underlay_does_not_repeat_turning_points()
     {
         var p = new SatinParameters { Underlay = new SatinUnderlay { CenterWalk = true, EdgeWalk = true } };

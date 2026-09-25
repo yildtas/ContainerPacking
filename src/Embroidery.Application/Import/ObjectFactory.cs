@@ -28,14 +28,14 @@ public static class ObjectFactory
         {
             var idx = threads.FindIndex(t => t.ColorHex.Equals(color, StringComparison.OrdinalIgnoreCase));
             if (idx >= 0) return idx;
-            threads.Add(new EmbroideryThread($"Thread {threads.Count + 1}", color));
+            threads.Add(new EmbroideryThread($"İplik {threads.Count + 1}", color));
             return threads.Count - 1;
         }
 
         var n = 0;
         foreach (var shape in artwork.Shapes)
         {
-            var baseName = shape.ElementId ?? $"Shape {++n}";
+            var baseName = shape.ElementId ?? $"Şekil {++n}";
             if (shape.FillColor is { } fill)
             {
                 var rings = shape.Subpaths.Where(s => s.Points.Count >= 3).Select(s => s.Points).ToArray();
@@ -58,7 +58,7 @@ public static class ObjectFactory
                 {
                     var path = sub.Closed ? sub.Points.Append(sub.Points[0]).ToArray() : sub.Points.ToArray();
                     if (path.Length < 2) continue;
-                    var name = shape.Subpaths.Count > 1 ? $"{baseName} outline {++i}" : $"{baseName} outline";
+                    var name = shape.Subpaths.Count > 1 ? $"{baseName} kontur {++i}" : $"{baseName} kontur";
                     if (shape.StrokeWidthMm >= SatinStrokeMinMm)
                     {
                         var (a, b) = ObjectConverter.RailsAround(path, shape.StrokeWidthMm);
@@ -72,7 +72,7 @@ public static class ObjectFactory
             }
         }
 
-        if (threads.Count == 0) threads.Add(new EmbroideryThread("Thread 1", "#000000"));
+        if (threads.Count == 0) threads.Add(new EmbroideryThread("İplik 1", "#000000"));
         return (threads, objects, diagnostics);
     }
 }
