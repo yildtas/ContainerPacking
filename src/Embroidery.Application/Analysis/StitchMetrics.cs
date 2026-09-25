@@ -90,6 +90,11 @@ public sealed record StitchMetrics
                     CloseJumpRun();
                     moves.Add((double.NaN, double.NaN));
                     break;
+                case EncodedCommand.Trim:
+                    // An explicit trim (non-DST formats) counts like an inferred one.
+                    trims++;
+                    moves.Add((double.NaN, double.NaN));
+                    break;
             }
 
             px = st.X;

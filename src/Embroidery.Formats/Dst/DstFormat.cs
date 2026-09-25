@@ -101,6 +101,15 @@ public static class DstWriter
         var ended = false;
         foreach (var s in plan.Stitches)
         {
+            if (s.Command == EncodedCommand.Trim)
+            {
+                // DST has no trim: the Tajima convention of three zero-sum jumps.
+                records.Add(DstFormat.EncodeRecord(2, 2, EncodedCommand.Jump));
+                records.Add(DstFormat.EncodeRecord(-4, -4, EncodedCommand.Jump));
+                records.Add(DstFormat.EncodeRecord(2, 2, EncodedCommand.Jump));
+                continue;
+            }
+
             records.Add(DstFormat.EncodeRecord(s.X - x, s.Y - y, s.Command));
             x = s.X;
             y = s.Y;

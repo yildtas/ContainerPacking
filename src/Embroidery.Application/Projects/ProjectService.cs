@@ -8,6 +8,7 @@ using Embroidery.Core.Diagnostics;
 using Embroidery.Core.Model;
 using Embroidery.Core.Objects;
 using Embroidery.Core.StitchPlan;
+using Embroidery.Formats;
 using Embroidery.Formats.Dst;
 using Embroidery.Geometry.Svg;
 using Embroidery.Machine;
@@ -252,12 +253,38 @@ public sealed class ProjectService
     }
 
     /// <summary>Full pipeline for any design (open or not): validated plan and machine stream.</summary>
-    public (EncodedStitchPlan Encoded, LogicalStitchPlan Plan) Encode(Design design, CancellationToken ct = default)
+    public (EncodedStitchPlan Encoded, LogicalStitchPlan Plan) Encode(Design design, CancellationToken ct = default) =>
+        Encode(design, MachineProfile.Find(design.MachineProfileId), ct);
+
+    public (EncodedStitchPlan Encoded, LogicalStitchPlan Plan) Encode(Design design, MachineProfile profile, CancellationToken ct = default)
     {
         Validate(design);
         var plan = BuildPlan(design, ct);
-        var profile = MachineProfile.Find(design.MachineProfileId);
         return (MachineEncoder.Encode(plan, profile, design.Name), plan);
+    }
+
+    /// <summary>Thread colour of each colour block of the plan, in sewing order (for formats that store colours).</summary>
+    public static IReadOnlyList<string> BlockColors(Design design, LogicalStitchPlan plan)
+    {
+        var colors = new List<string>();
+        int? last = null;
+        foreach (var block in plan.Blocks.Where(b => b.Kind == BlockKind.Object && b.Stitches.Count > 0))
+        {
+            if (block.ThreadIndex == last) continue;
+            last = block.ThreadIndex;
+            colors.Add(block.ThreadIndex >= 0 && block.ThreadIndex < design.Threads.Count ? design.Threads[block.ThreadIndex].ColorHex : "#000000");
+        }
+
+        return colors;
+    }
+
+    /// <summary>The design in a machine format (dst, pes, jef, exp).</summary>
+    public ExportResult ExportMachineFile(Guid projectId, string formatId, CancellationToken ct = default)
+    {
+        var format = StitchFormats.Find(formatId) ?? throw new DesignValidationException($"Unknown machine format '{formatId}'. Known: {string.Join(", ", StitchFormats.All.Select(f => f.Id))}.");
+        var design = Get(projectId);
+        var (encoded, plan) = Encode(design, format.Profile, ct);
+        return new ExportResult(format.Write(encoded, BlockColors(design, plan)), SafeFileName(design.Name) + format.Extension, plan.Diagnostics);
     }
 
     /// <summary>

@@ -131,6 +131,12 @@ public static class MachineEncoder
         public void Trim()
         {
             if (_ended) return;
+            if (profile.Trim.Native)
+            {
+                if (Output.Count > 0 && Output[^1].Command != EncodedCommand.Trim) Output.Add(new EncodedStitch(_x, _y, EncodedCommand.Trim));
+                return;
+            }
+
             var count = Math.Max(1, profile.Trim.JumpCount);
             var size = Math.Max(1, profile.Trim.JumpSize);
             int bx = _x, by = _y;

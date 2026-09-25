@@ -99,8 +99,9 @@ export const api = {
   preview: (id: string, signal?: AbortSignal) => request(`/${id}/preview`, { signal }).then(json<Preview>),
 
   /** Downloads an export through fetch (the token header cannot be sent by a plain link). */
-  async download(id: string, format: "dst" | "embx" | "dst-parts" | "svg") {
-    const response = await request(`/${id}/export/${format}`);
+  async download(id: string, format: "dst" | "embx" | "dst-parts" | "svg" | "pes" | "jef" | "exp") {
+    const path = format === "pes" || format === "jef" || format === "exp" ? `machine/${format}` : format;
+    const response = await request(`/${id}/export/${path}`);
     const disposition = response.headers.get("Content-Disposition") ?? "";
     const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
     const fileName = match ? decodeURIComponent(match[1]) : format === "dst-parts" ? "design-parcalar.zip" : `design.${format}`;

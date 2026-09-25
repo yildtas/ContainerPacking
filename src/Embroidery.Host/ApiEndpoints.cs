@@ -119,6 +119,13 @@ public static class ApiEndpoints
             return Results.File(result.Data, "application/octet-stream", result.FileName);
         });
 
+        // Home-machine formats: pes, jef, exp (dst also works here).
+        api.MapGet("/{id:guid}/export/machine/{format}", (Guid id, string format, ProjectService projects, CancellationToken ct) =>
+        {
+            var result = projects.ExportMachineFile(id, format, ct);
+            return Results.File(result.Data, "application/octet-stream", result.FileName);
+        });
+
         api.MapGet("/{id:guid}/export/dst-parts", (Guid id, ProjectService projects, CancellationToken ct) =>
         {
             var result = projects.ExportDstParts(id, ct);

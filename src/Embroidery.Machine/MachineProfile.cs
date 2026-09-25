@@ -10,6 +10,9 @@ public sealed record TrimPolicy
 
     /// <summary>Jump size in machine units for the zero-sum trim jumps.</summary>
     public int JumpSize { get; init; } = 2;
+
+    /// <summary>The format has a trim command: emit <see cref="EncodedCommand.Trim"/> instead of jumps.</summary>
+    public bool Native { get; init; }
 }
 
 /// <summary>Physical and format limits of a target machine.</summary>
@@ -37,7 +40,16 @@ public sealed record MachineProfile
 
     public static readonly MachineProfile GenericDst = new() { Id = "generic-dst", Name = "Generic Tajima DST" };
 
-    public static IReadOnlyList<MachineProfile> BuiltIn { get; } = [GenericDst];
+    /// <summary>Brother/Babylock PES (PEC stitch block, 0.1 mm).</summary>
+    public static readonly MachineProfile BrotherPes = new() { Id = "brother-pes", Name = "Brother PES", Trim = new TrimPolicy { Native = true } };
+
+    /// <summary>Janome JEF (0.1 mm, ±127 per record).</summary>
+    public static readonly MachineProfile JanomeJef = new() { Id = "janome-jef", Name = "Janome JEF", Trim = new TrimPolicy { Native = true } };
+
+    /// <summary>Melco/Bernina EXP (0.1 mm, ±127 per record).</summary>
+    public static readonly MachineProfile MelcoExp = new() { Id = "melco-exp", Name = "Melco EXP", Trim = new TrimPolicy { Native = true } };
+
+    public static IReadOnlyList<MachineProfile> BuiltIn { get; } = [GenericDst, BrotherPes, JanomeJef, MelcoExp];
 
     public static MachineProfile Find(string id) => BuiltIn.FirstOrDefault(p => p.Id == id) ?? GenericDst;
 }

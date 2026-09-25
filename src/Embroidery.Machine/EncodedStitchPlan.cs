@@ -6,6 +6,9 @@ public enum EncodedCommand : byte
     Jump,
     ColorChange,
     End,
+
+    /// <summary>A cut command, only in plans for formats that have one (see <see cref="TrimPolicy.Native"/>).</summary>
+    Trim,
 }
 
 /// <summary>An absolute position in machine units (Y up, origin at design centre).</summary>

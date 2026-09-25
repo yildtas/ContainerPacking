@@ -1,11 +1,13 @@
 using System.Globalization;
 using System.Text.Json;
 using Embroidery.Application.Analysis;
+using Embroidery.Application.Backends;
 using Embroidery.Application.Calibration;
 using Embroidery.Application.Export;
 using Embroidery.Application.Projects;
 using Embroidery.Application.Serialization;
 using Embroidery.Core.Diagnostics;
+using Embroidery.Formats;
 using Embroidery.Formats.Dst;
 using Embroidery.Geometry.Svg;
 using Embroidery.Machine;
@@ -14,10 +16,11 @@ using Embroidery.Machine;
 // Usage is printed when arguments are missing.
 
 const string Usage = """
-    embroidery convert <in.svg> <out.dst> [--width mm] [--profile id] [--profiles dir] [--mirror h|v] [--hoop WxH] [--optimize] [--split]
+    embroidery convert <in.svg> <out.dst|.pes|.jef|.exp> [--width mm] [--profile id] [--profiles dir] [--mirror h|v] [--hoop WxH] [--optimize] [--split]
                        [--report r.json] [--preview p.svg] [--fabric #RRGGBB]
     embroidery analyze <in.dst> [--report r.json] [--preview p.svg] [--fabric #RRGGBB] [--thread #RRGGBB]
     embroidery compare <reference.dst> <candidate.dst|candidate.svg>
+    embroidery compare-backends <in.svg> [--inkstitch "command {input} {output}"] [--ewa settings.json] [--out dir]
     embroidery trace <in.dst> <out.svg> [--pull mm] [--regenerate out.dst]
     embroidery calibration <out-dir>
     embroidery profile list [--profiles dir]
@@ -32,6 +35,7 @@ try
         "convert" when args.Length >= 3 => Convert(args[1], args[2], Options(args, 3)),
         "analyze" when args.Length >= 2 => Analyze(args[1], Options(args, 2)),
         "compare" when args.Length >= 3 => Compare(args[1], args[2]),
+        "compare-backends" when args.Length >= 2 => CompareBackends(args[1], Options(args, 2)).GetAwaiter().GetResult(),
         "trace" when args.Length >= 3 => Trace(args[1], args[2], Options(args, 3)),
         "calibration" when args.Length >= 2 => Calibration(args[1]),
         "profile" when args.Length >= 2 && args[1] == "list" => ProfileList(Options(args, 2)),
@@ -133,8 +137,10 @@ static int Convert(string input, string output, Dictionary<string, string> optio
         return 0;
     }
 
-    var (encoded, plan) = service.Encode(design);
-    File.WriteAllBytes(output, DstWriter.Write(encoded));
+    // The output extension picks the machine format (dst, pes, jef, exp).
+    var format = StitchFormats.Find(Path.GetExtension(output)) ?? StitchFormats.Dst;
+    var (encoded, plan) = service.Encode(design, format.Profile);
+    File.WriteAllBytes(output, format.Write(encoded, ProjectService.BlockColors(design, plan)));
 
     var metrics = StitchMetrics.From(encoded);
     Print(Path.GetFileName(output), metrics);
@@ -192,6 +198,41 @@ static int Compare(string reference, string candidate)
     Row("same-rail spacing p50 mm (inf.)", r.SatinSameRailSpacingMm?.P50 ?? 0, c.SatinSameRailSpacingMm?.P50 ?? 0);
     Row("running share (inferred)", r.RunningShare, c.RunningShare);
     return 0;
+}
+
+static async Task<int> CompareBackends(string input, Dictionary<string, string> options)
+{
+    var ewaSettings = options.TryGetValue("ewa", out var ewaFile)
+        ? JsonSerializer.Deserialize<WilcomEwaSettings>(File.ReadAllText(ewaFile), new JsonSerializerOptions(JsonSerializerDefaults.Web)) ?? new WilcomEwaSettings()
+        : new WilcomEwaSettings();
+    using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
+    IDigitizerBackend[] backends =
+    [
+        new NativeBackend(new ProjectService(profiles: Store(options)), options.GetValueOrDefault("profile")),
+        new CommandBackend("inkstitch", "Ink/Stitch", options.GetValueOrDefault("inkstitch")),
+        new WilcomEwaBackend(http, ewaSettings),
+    ];
+
+    var rows = await DigitizerBackends.CompareAsync(backends, Path.GetFileName(input), File.ReadAllText(input));
+    Console.WriteLine($"{"backend",-18}{"stitches",10}{"jumps",8}{"trims",8}{"thread m",10}{"throw p50",11}{"spacing p50",13}{"seconds",9}");
+    foreach (var (backend, result, m) in rows)
+    {
+        if (m is null)
+        {
+            Console.WriteLine($"{backend.Name,-18}{(backend.IsConfigured ? "failed: " : "")}{result.Message}");
+            continue;
+        }
+
+        Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            $"{backend.Name,-18}{m.Stitches,10}{m.Jumps,8}{m.InferredTrims,8}{m.ThreadPathM,10:0.00}{m.SatinThrowMm?.P50 ?? 0,11:0.00}{m.SatinSameRailSpacingMm?.P50 ?? 0,13:0.00}{result.Elapsed.TotalSeconds,9:0.0}"));
+        if (options.TryGetValue("out", out var outDir) && result.Dst is { } dst)
+        {
+            Directory.CreateDirectory(outDir);
+            File.WriteAllBytes(Path.Combine(outDir, $"{Path.GetFileNameWithoutExtension(input)}-{backend.Id}.dst"), dst);
+        }
+    }
+
+    return rows.Any(r => r.Backend.IsConfigured && !r.Result.Succeeded) ? 2 : 0;
 }
 
 static int Trace(string input, string output, Dictionary<string, string> options)

@@ -49,6 +49,7 @@ export function App() {
   const previewAbort = useRef<AbortController | null>(null);
   const svgInput = useRef<HTMLInputElement>(null);
   const embxInput = useRef<HTMLInputElement>(null);
+  const [exportFormat, setExportFormat] = useState<"dst" | "pes" | "jef" | "exp">("dst");
 
   const design = project?.design ?? null;
   const sim = useMemo(() => (preview ? buildSimulation(preview) : null), [preview]);
@@ -206,12 +207,24 @@ export function App() {
               Parçalı DST (zip)
             </button>
           )}
+          <select
+            className="format-select"
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as typeof exportFormat)}
+            title="Makine formatı"
+            aria-label="Makine formatı"
+          >
+            <option value="dst">DST (Tajima)</option>
+            <option value="pes">PES (Brother)</option>
+            <option value="jef">JEF (Janome)</option>
+            <option value="exp">EXP (Melco)</option>
+          </select>
           <button
             className="primary"
-            onClick={() => design && api.download(design.id, "dst").catch((e) => notify(e.message, true))}
+            onClick={() => design && api.download(design.id, exportFormat).catch((e) => notify(e.message, true))}
             disabled={!design}
           >
-            DST dışa aktar
+            Dışa aktar
           </button>
         </span>
         <input ref={svgInput} type="file" accept=".svg,image/svg+xml" hidden onChange={(e) => {
