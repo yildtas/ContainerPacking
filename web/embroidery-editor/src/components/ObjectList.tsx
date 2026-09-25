@@ -9,7 +9,7 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
-const typeShort = { run: "R", satin: "S", tatami: "T" } as const;
+const typeShort = { run: "R", satin: "S", tatami: "T", rope: "H" } as const;
 
 /** Objects in sew order; the order here is the order the machine stitches. */
 export function ObjectList({ design, selectedId, onSelect, onMove, onToggle, onDelete }: Props) {

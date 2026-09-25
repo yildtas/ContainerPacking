@@ -1,4 +1,4 @@
-import type { EmbroideryObject, EmbroideryThread, Hoop, Preview, ProjectState, StitchType } from "./types";
+import type { EmbroideryObject, EmbroideryThread, Hoop, Preview, ProjectState, StitchProfile, StitchType } from "./types";
 
 export class ApiError extends Error {
   constructor(
@@ -26,12 +26,12 @@ function token(): Promise<string> {
   return tokenPromise;
 }
 
-async function request(path: string, init: RequestInit & { revision?: number } = {}): Promise<Response> {
+async function request(path: string, init: RequestInit & { revision?: number; root?: string } = {}): Promise<Response> {
   const headers = new Headers(init.headers);
   headers.set("X-Embroidery-Token", await token());
   if (init.revision !== undefined) headers.set("If-Match", String(init.revision));
   if (init.body && typeof init.body === "string") headers.set("Content-Type", "application/json");
-  const response = await fetch(`/api/projects${path}`, { ...init, headers });
+  const response = await fetch(`${init.root ?? "/api/projects"}${path}`, { ...init, headers });
   if (!response.ok) {
     let message = `İstek başarısız (${response.status}).`;
     try {
@@ -73,6 +73,14 @@ export const api = {
 
   updateSettings: (id: string, revision: number, settings: { name?: string; hoop?: Hoop }) =>
     request(`/${id}/settings`, { method: "PUT", revision, body: JSON.stringify(settings) }).then(json<ProjectState>),
+
+  profiles: () => request("/api/profiles", { root: "" }).then(json<{ stitch: StitchProfile[]; hoops: Hoop[] }>),
+
+  applyProfile: (id: string, revision: number, profileId: string) =>
+    request(`/${id}/profile`, { method: "PUT", revision, body: JSON.stringify({ profileId }) }).then(json<ProjectState>),
+
+  mirror: (id: string, revision: number, axis: "horizontal" | "vertical") =>
+    request(`/${id}/mirror`, { method: "POST", revision, body: JSON.stringify({ axis }) }).then(json<ProjectState>),
 
   undo: (id: string) => request(`/${id}/undo`, { method: "POST" }).then(json<ProjectState>),
   redo: (id: string) => request(`/${id}/redo`, { method: "POST" }).then(json<ProjectState>),

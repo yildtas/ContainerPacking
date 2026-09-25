@@ -36,8 +36,11 @@ npm run dev   # http://localhost:5173, /api istekleri host'a yönlendirilir
 ## Komut satırı araçları
 
 ```bash
-# SVG → DST, ölçüm raporu ve SVG önizleme
-dotnet run --project src/Embroidery.Tools -- convert tasarim.svg tasarim.dst --report rapor.json --preview onizleme.svg --fabric "#7A101C"
+# SVG → DST, ölçüm raporu ve SVG önizleme (profil, ayna ve kasnak isteğe bağlı)
+dotnet run --project src/Embroidery.Tools -- convert tasarim.svg tasarim.dst --profile glossy-satin \
+    --report rapor.json --preview onizleme.svg --fabric "#7A101C"
+# Sağ ön panel = sol panelin aynası; büyük çerçeve
+dotnet run --project src/Embroidery.Tools -- convert sol-on.svg sag-on.dst --mirror h --hoop 300x500
 
 # Bir DST'yi ölç (dikiş sayısı, boyut, satin genişliği/sıklığı, trim, düz dikiş payı)
 dotnet run --project src/Embroidery.Tools -- analyze referans.dst
@@ -55,7 +58,9 @@ dotnet run --project src/Embroidery.Tools -- calibration cikti/
 
 - **Sabit kalınlıklı kıvrım:** orta çizgi, `stroke-width` = satin genişliği. Sivri uçlar için `data-taper`, `data-taper-start`, `data-taper-end` (mm).
 - **Değişken genişlikli parça (yaprak, yıldız kolu):** iki kenar çizgisi + isteğe bağlı rung çizgileri tek path içinde; `inkstitch:satin_column="True"` veya `data-stitch="satin"`.
-- **Tür zorlama:** `data-stitch="run|satin|tatami"` (ör. kalıp kesim çizgisi `data-stitch="run"`).
+- **Halat (burgu) bordür:** bant ekseni boyunca path, `data-stitch="rope"`, `stroke-width` = bant genişliği, isteğe bağlı `data-pitch` (mm).
+- **Tür zorlama:** `data-stitch="run|satin|tatami|rope"` (ör. kalıp kesim çizgisi `data-stitch="run"`).
+- Orta çizgideki keskin köşeler otomatik olarak örtüşen parçalara bölünür.
 - İşaretsiz öğeler: dolgulu → Tatami, ≥1,2 mm çizgi → Satin, ince çizgi → Run.
 
 ## Testler
@@ -67,7 +72,9 @@ cd web/embroidery-editor && npm test     # arayüz birim testleri
 
 ## Kullanım
 
-1. **SVG içe aktar.** Dolgulu şekiller Tatami, 1,2 mm ve daha kalın çizgiler Satin, ince çizgiler Run olarak gelir. İsteğe bağlı "Genişlik mm" alanı SVG'yi o genişliğe ölçekler.
+1. **SVG içe aktar.** Dolgulu şekiller Tatami, 1,2 mm ve daha kalın çizgiler Satin, ince çizgiler Run olarak gelir; `data-stitch` ile tür belirtilebilir. İsteğe bağlı "Genişlik mm" alanı SVG'yi o genişliğe ölçekler. Tasarımın sığdığı en küçük kasnak otomatik seçilir.
+1. **Profil** seçin: Standart, Parlak saten (FER-7 referansı, 0,30 mm sıklık) veya Metalik. Profil tüm nesnelerin sıklık ayarlarını günceller (geri alınabilir).
+1. Sol/sağ panel çifti için **Ayna ↔** kullanın.
 2. Listeden veya tuvalden bir nesne seçin. Sağ panelden türü, ipliği ve dikiş parametrelerini değiştirin. Her değişiklikte yalnızca o nesne yeniden hesaplanır.
 3. Dikiş sırasını ↑/↓ ile değiştirin; renkleri iplik panelinden düzenleyin.
 4. Simülatörle dikişi adım adım izleyin (Boşluk: oynat/duraklat).
@@ -95,10 +102,10 @@ tests/                     birim ve format testleri
 
 MVP kapsamı tamam. Sıradaki işler mimari belgesinin 19. bölümünde; başlıcaları:
 
-- Tuval üzerinde rail/rung sürükleyerek düzenleme; dolu konturdan otomatik satin kolonu çıkarımı
-- Satin köşe stratejileri (fan, mitre)
-- Kapsama durumunu bilen (A*) travel yolu ve dikiş sırası optimizasyonu
-- Üst üste binen nesnelerde alttaki dikişlerin çıkarılması
-- PES/JEF/VP3 formatları, lettering, auto-digitizing
+- Tuval üzerinde rail/rung/orta çizgi sürükleyerek düzenleme (bugün düzenleme Inkscape'te, sözleşmeyle)
+- Satin köşelerinde miter/cap seçenekleri, rails kolonlarında köşe bölme
+- Engel etrafından gizli yol bulma (A*) ve dikiş sırası optimizasyonu
+- Tek kasnağa sığmayan işlerde bölme + hizalama işaretleri
+- Dolu konturdan otomatik satin kolonu çıkarımı, PES/JEF formatları, lettering, auto-digitizing
 
-Dikiş kalitesi gerçek kumaş, iplik ve makine üzerinde doğrulanmalıdır. Üretilen DST dosyaları henüz fiziksel makinede test edilmedi.
+Dikiş kalitesi gerçek kumaş, iplik ve makine üzerinde doğrulanmalıdır. Üretilen DST dosyaları henüz fiziksel makinede test edilmedi; ilk adım `embroidery calibration` ile üretilen test sayfasının dikilmesidir.

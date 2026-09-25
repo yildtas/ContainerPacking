@@ -523,3 +523,9 @@ legend {
   padding: 0;
   border: 1px solid var(--border);
 }
+
+.button-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}

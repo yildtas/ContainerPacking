@@ -54,6 +54,7 @@ public class AnalysisTests
         var md = CalibrationSheet.LegendMarkdown(legend);
         Assert.Contains("| A1.1 |", md);
         Assert.Contains("| E3 |", md);
+        Assert.Contains("| F3 |", md);
     }
 
     [Fact]

@@ -9,7 +9,7 @@ interface Props {
   onConvert: (type: StitchType) => void;
 }
 
-export const typeLabels: Record<StitchType, string> = { run: "Run (düz dikiş)", satin: "Satin", tatami: "Tatami (dolgu)" };
+export const typeLabels: Record<StitchType, string> = { run: "Run (düz dikiş)", satin: "Satin", tatami: "Tatami (dolgu)", rope: "Halat (burgu)" };
 
 export function PropertiesPanel({ item, threads, onChange, onConvert }: Props) {
   const [name, setName] = useState(item.name);
@@ -96,6 +96,7 @@ function ParameterFields({ item, onChange }: { item: EmbroideryObject; onChange:
               options={[{ value: "none", label: "Kapalı" }, { value: "innerOnly", label: "İç kenarda" }]}
               onCommit={(v) => set({ shortStitch: v })}
             />
+            <NumberField label="Köşe bölme açısı" unit="°" step={5} value={p.cornerSplitAngleDeg} min={20} max={180} onCommit={(v) => set({ cornerSplitAngleDeg: v })} />
           </fieldset>
           <fieldset>
             <legend>Underlay</legend>
@@ -106,6 +107,28 @@ function ParameterFields({ item, onChange }: { item: EmbroideryObject; onChange:
             <NumberField label="Zikzak aralığı" unit="mm" value={p.underlay.zigZagSpacingMm} min={0.5} max={10} onCommit={(v) => setU({ zigZagSpacingMm: v })} />
           </fieldset>
         </>
+      );
+    }
+    case "rope": {
+      const p = item.parameters;
+      const set = (patch: Partial<typeof p>) => onChange({ ...item, parameters: { ...p, ...patch } });
+      return (
+        <fieldset>
+          <legend>Halat</legend>
+          <NumberField label="Bant genişliği" unit="mm" step={0.5} value={item.widthMm} min={1} max={20} onCommit={(v) => onChange({ ...item, widthMm: v })} />
+          <NumberField label="Adım" unit="mm" step={0.5} value={p.pitchMm} min={0.8} max={20} onCommit={(v) => set({ pitchMm: v })} />
+          <NumberField label="Tel eğimi (boy)" unit="mm" step={0.5} value={p.strandLengthMm} min={1} max={40} onCommit={(v) => set({ strandLengthMm: v })} />
+          <NumberField label="Sıklık" unit="mm" step={0.05} value={p.spacingMm} min={0.15} max={5} onCommit={(v) => set({ spacingMm: v })} />
+          <NumberField label="Bindirme" step={0.05} value={p.overlapFactor} min={0.5} max={2} onCommit={(v) => set({ overlapFactor: v })} />
+          <NumberField label="Pull comp." unit="mm" step={0.05} value={p.pullCompensationMm} min={-1} max={3} onCommit={(v) => set({ pullCompensationMm: v })} />
+          <SelectField
+            label="Burgu"
+            value={p.twist}
+            options={[{ value: "s", label: "S" }, { value: "z", label: "Z" }]}
+            onCommit={(v) => set({ twist: v })}
+          />
+          <CheckField label="Orta underlay" value={p.centerUnderlay} onCommit={(v) => set({ centerUnderlay: v })} />
+        </fieldset>
       );
     }
     case "tatami": {

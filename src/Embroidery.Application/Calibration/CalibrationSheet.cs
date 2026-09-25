@@ -74,6 +74,20 @@ public static class CalibrationSheet
             Add(o, "Kavisli satin", string.Create(ci, $"yarıçap 8 mm, genişlik 4 mm, sıklık {spacings[i]:0.00}, uçlar 3 mm incelir"));
         }
 
+        // F: rope border pitch (vertical, right of the A columns).
+        double[] pitches = [2.5, 3.0, 3.5];
+        for (var i = 0; i < pitches.Length; i++)
+        {
+            var x = 92 + i * 12.0;
+            var o = new RopeObject
+            {
+                Id = Guid.NewGuid(), Name = string.Create(ci, $"F{i + 1}"), ThreadIndex = 0,
+                Path = [new(x, 10), new(x, 70)], WidthMm = 4,
+                Parameters = new RopeParameters { PitchMm = pitches[i], StrandLengthMm = pitches[i] * 2 },
+            };
+            Add(o, "Halat", string.Create(ci, $"bant 4 mm, adım {pitches[i]:0.0} mm, tel boyu {pitches[i] * 2:0.0} mm, S burgu"));
+        }
+
         // D: tatami row spacing.
         double[] rows = [0.35, 0.40, 0.45];
         for (var i = 0; i < rows.Length; i++)

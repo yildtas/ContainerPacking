@@ -6,14 +6,8 @@ import { SimulatorBar } from "./components/SimulatorBar";
 import { StitchCanvas } from "./components/StitchCanvas";
 import { ThreadPanel } from "./components/ThreadPanel";
 import { buildSimulation } from "./simulation";
-import type { Design, Diagnostic, Hoop, Preview, ProjectState } from "./types";
+import type { Design, Diagnostic, Hoop, Preview, ProjectState, StitchProfile } from "./types";
 
-const hoops: Hoop[] = [
-  { name: "100x100", widthMm: 100, heightMm: 100 },
-  { name: "130x180", widthMm: 130, heightMm: 180 },
-  { name: "200x200", widthMm: 200, heightMm: 200 },
-  { name: "360x200", widthMm: 360, heightMm: 200 },
-];
 
 const severityLabel = { info: "Bilgi", warning: "Uyarı", error: "Hata" } as const;
 
@@ -42,6 +36,14 @@ export function App() {
     }
   };
   const [targetWidth, setTargetWidth] = useState("");
+  const [hoops, setHoops] = useState<Hoop[]>([]);
+  const [profiles, setProfiles] = useState<StitchProfile[]>([]);
+  useEffect(() => {
+    api.profiles().then((p) => {
+      setHoops(p.hoops);
+      setProfiles(p.stitch);
+    }).catch(() => undefined);
+  }, []);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const previewAbort = useRef<AbortController | null>(null);
@@ -232,11 +234,33 @@ export function App() {
                   {!hoops.some((h) => h.name === design.hoop.name) && <option>{design.hoop.name}</option>}
                   {hoops.map((h) => (
                     <option key={h.name} value={h.name}>
-                      {h.widthMm} × {h.heightMm} mm
+                      {h.name.includes(" ") ? h.name : `${h.widthMm} × ${h.heightMm} mm`}
                     </option>
                   ))}
                 </select>
               </label>
+              <label className="field">
+                <span>Profil</span>
+                <select
+                  value={design.stitchProfileId}
+                  title={profiles.find((p) => p.id === design.stitchProfileId)?.description}
+                  onChange={(e) => run((d) => api.applyProfile(d.id, d.revision, e.target.value))}
+                >
+                  {profiles.map((p) => (
+                    <option key={p.id} value={p.id} title={p.description}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="button-row">
+                <button onClick={() => run((d) => api.mirror(d.id, d.revision, "horizontal"))} title="Sol/sağ panel için yatay ayna">
+                  Ayna ↔
+                </button>
+                <button onClick={() => run((d) => api.mirror(d.id, d.revision, "vertical"))} title="Dikey ayna">
+                  Ayna ↕
+                </button>
+              </div>
             </section>
             <section className="grow">
               <h2>Dikiş sırası</h2>

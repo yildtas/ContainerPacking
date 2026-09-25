@@ -39,6 +39,8 @@ function objectOutlines(o: EmbroideryObject): Vec2[][] {
       return o.source === "stroke" ? [o.centerline] : [o.railA, o.railB, ...o.rungs.map((r) => [r.a, r.b])];
     case "tatami":
       return o.region.rings.map((r) => [...r, r[0]]);
+    case "rope":
+      return [o.path];
   }
 }
 

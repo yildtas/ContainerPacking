@@ -1,11 +1,12 @@
-# Nakış Digitizing Sistemi — Mimari (v3)
+# Nakış Digitizing Sistemi — Mimari (v4, teslim)
 
 > **Durum: 25 Eylül 2026.** Bu belge projenin tek mimari kaynağıdır. Kullanıcının verdiği bütün
 > araştırmalar (Context, Otomatik Digitizing Planı, Buttery Stitches, Wilcom EWA araştırması,
 > Wilcom açık sorular, 28 soruluk özel motor değerlendirmesi, 23–24 Eylül kaynak snapshot'ları)
 > ve gerçek referans dosya **FER-7 ÖN** (DST + Pulse ekranı + kağıt taslak) işlenmiştir.
-> v1 kullanıcı taslağı, v2 ilk inceleme düzeltmeleridir (R1–R20); v3 bunların üzerine kararları,
-> araştırma bulgularını, referans ölçümlerini ve **kodun gerçek durumunu** ekler.
+> v1 kullanıcı taslağı, v2 ilk inceleme düzeltmeleridir (R1–R20); v3 kararları, araştırma
+> bulgularını ve referans ölçümlerini ekledi; **v4 teslim sürümüdür**: satin köşe bölme, halat
+> bordür, dikiş profilleri, ayna, gizli bağlantılar ve büyük çerçeveler dahil kodun son durumu.
 
 ## İçindekiler
 
@@ -100,9 +101,10 @@ değerlendirme §6).
 | Raw DST okuyucu, trim yorumu ayrı ("inferred") | ✅ `DstReader` + `StitchMetrics` |
 | Golden analyzer + fixture klasörü | ✅ `embroidery analyze/compare`, `fixtures/` |
 | Estetik split generator'da; encoder yalnız güvenlik bölmesi | ✅ |
-| Köşe politikaları (Auto/Miter/Cap/Split) | ⏳ yol haritası |
+| Köşe politikası | ✅ keskin köşede otomatik bölme ("lap"); miter/cap seçenekleri yol haritası |
+| Nesneler arası gizli bağlantı (coverage) | ✅ sonra dikilecek nesnelerin altından travel |
+| Malzeme/iş profili | ✅ `StitchProfile` (standart, parlak saten/FER-7, metalik) |
 | Üç ayrı doğrulama (geometri / plan / kodlanmış akış) | ⏳ kısmen (QualityPass + encoder testleri) |
-| MaterialProfile (kumaş/iplik/iğne/stabilizer) | ⏳ yol haritası |
 | Bölge ayrıştırma (T/Y), confidence'lı otomatik kolon önerisi | ⏳ yol haritası |
 | Öncelik korumalı sıralama optimizasyonu | ⏳ yol haritası |
 
@@ -190,17 +192,19 @@ parçalarından oluşuyor (ileride parametrik "halat" nesnesi adayı).
 Embroidery.sln                    (.NET 10, global.json, Directory.Build.props: nullable, warnings-as-errors)
 ├── src/
 │   ├── Embroidery.Core/          Primitives (Vec2, Bounds, Region), Model (Design, Thread, Hoop,
-│   │                             ConnectionPolicy), Objects (Run/Satin/Tatami + parametreler),
+│   │                             ConnectionPolicy, StitchProfile, HoopPresets), Objects
+│   │                             (Run/Satin/Tatami/Rope + parametreler),
 │   │                             StitchPlan (LogicalStitchPlan), Diagnostics
 │   ├── Embroidery.Geometry/      Matrix2D, CurveFlattener, ArcLengthPath, PolygonOps (Clipper2),
 │   │                             Svg/SvgPathParser, Svg/SvgImporter
 │   ├── Embroidery.StitchEngine/  GenerationContext + EntryCandidates, Generators/ (RunSampler,
-│   │                             Run, SatinLadder, Satin, Tatami), Sequencing/PlanBuilder,
+│   │                             Run, SatinLadder, Satin, Tatami, Rope), Sequencing/
+│   │                             (PlanBuilder, ObjectCoverage),
 │   │                             Quality/QualityPass
 │   ├── Embroidery.Machine/       MachineProfile, TrimPolicy, MachineEncoder, EncodedStitchPlan
 │   ├── Embroidery.Formats/       Dst/ (DstFormat, DstWriter, DstReader)
 │   ├── Embroidery.Application/   Projects/ (ProjectService, ProjectSession, EmbxPackage,
-│   │                             ParameterValidator), Import/ (ObjectFactory, ObjectConverter),
+│   │                             ParameterValidator, DesignTransforms), Import/ (ObjectFactory, ObjectConverter),
 │   │                             Caching/, Serialization/, Preview/, Analysis/, Calibration/
 │   ├── Embroidery.Host/          Program, ApiEndpoints, LocalSecurity (+ wwwroot: derlenmiş UI)
 │   └── Embroidery.Tools/         embroidery CLI
@@ -231,7 +235,15 @@ Birim dönüşümü yalnız sınırlarda: SVG importer (px/pt/cm → mm) ve enco
 
 **Design** (değişmez record; her düzenleme yeni revision):
 `Id, Name, Revision, Artwork (orijinal SVG + ölçek), Threads[], Objects[] (dikiş sırası),
-Hoop, MachineProfileId, Connections (ConnectionPolicy)`.
+Hoop, MachineProfileId, StitchProfileId, Connections (ConnectionPolicy)`.
+
+**StitchProfile** (hazır: `standard`, `glossy-satin` — FER-7'den ölçülen 0,30 mm, `metallic`):
+satin sıklığı/pull, Tatami satır aralığı/dikiş boyu/pull, run dikiş boyu, halat sıklığı.
+Profil içe aktarmada veya sonradan (geri alınabilir tek adım) tüm nesnelere uygulanır;
+geometri ve yapısal seçimler (underlay katmanları, incelmeler, rung'lar) korunur.
+
+**HoopPresets:** 100×100, 130×180, 200×200, 360×200, 300×500 ve 400×600 büyük çerçeve.
+İçe aktarma, tasarımın sığdığı (90° döndürme dahil) en küçük hazır kasnağı seçer.
 
 **Nesneler** (`EmbroideryObject`: `Id, Name, ThreadIndex, Visible, EntryPoint?`):
 
@@ -241,9 +253,11 @@ Hoop, MachineProfileId, Connections (ConnectionPolicy)`.
 | `SatinObject` (`Source = Stroke`) | `Centerline`, `WidthMm`, `StartTaperMm`, `EndTaperMm` | `SatinParameters` |
 | `SatinObject` (`Source = Rails`) | `RailA`, `RailB`, `Rungs[]` | `SatinParameters` |
 | `TatamiObject` | `Region` (halkalar + fill-rule) | `TatamiParameters` |
+| `RopeObject` | `Path`, `WidthMm` (bant) | `RopeParameters`: adım, tel boyu (eğim), sıklık, bindirme, burgu S/Z, pull comp, orta underlay |
 
 `SatinParameters`: `SpacingMm` (D4), `PullCompensationMm`, `PushCompensationMm`, `MaxWidthMm`
-(split eşiği), `ShortStitch`, eşik/oran, `Underlay` (merkez, kenar, zikzak).
+(split eşiği), `ShortStitch`, eşik/oran, `CornerSplitAngleDeg` (varsayılan 60°), `Underlay`
+(merkez, kenar, zikzak).
 `TatamiParameters`: açı, satır aralığı, dikiş boyu, stagger oranı, kenar içeriği, pull comp,
 min dikiş, `Underlay` (kenar run, dik dolgu).
 
@@ -262,6 +276,8 @@ Vektörü hazırlayan kişi Inkscape'te çizer ve SVG olarak teslim eder. Örnek
 | Değişken genişlikli parça (yaprak, yıldız kolu) | Tek path içinde iki kenar alt-path'i + isteğe bağlı kısa rung alt-path'leri; `inkstitch:satin_column="True"` veya `data-stitch="satin"` | Rails satin; en uzun iki alt-path rail, diğerleri rung |
 | Tür zorlama | `data-stitch="run"`, `"satin"`, `"tatami"` | Belirtilen tür |
 | Kalıp kesim çizgisi | `data-stitch="run"` | Düz dikiş |
+| Halat (burgu) bordür | Bant ekseni boyunca path, `data-stitch="rope"`, `stroke-width` = bant genişliği, isteğe bağlı `data-pitch` (mm) | Halat nesnesi |
+| Keskin köşeli kolon | Orta çizgide köşe (ör. `L` şekli) | Köşede örtüşen parçalara otomatik bölünür |
 | İşaretsiz dolu şekil | `fill` | Tatami |
 | İşaretsiz çizgi | `stroke` ≥ 1,2 mm → Satin (stroke); daha ince → Run | |
 
@@ -316,9 +332,27 @@ SatinObject ──► SatinLadder (karşılıklı nokta çiftleri A[i] ↔ B[i],
                    (MaxWidthMm üstü atışlar, dönüşümlü faz)
 ```
 
+**Köşe bölme:** orta çizgi kaynaklı kolonda, çizginin ±w/2 pencerede `CornerSplitAngleDeg`'den
+(60°) fazla döndüğü **ve** 0,12 mm'lik komşulukta da döndüğü noktalar gerçek köşedir (sıkı ama
+düzgün spiral merkezi köşe sayılmaz). Kolon oradan parçalara bölünür; her parça (sonuncusu
+hariç) köşeyi w/2 kadar aşar, böylece köşenin dışı alttaki parçayla örtülür ("lap"). Başlangıç
+incelmesi ilk, bitiş incelmesi son parçaya uygulanır.
+
 Tanılar: `SAT001` geçersiz geometri, `SAT002` rail yönü düzeltildi, `SAT003` >12 mm (Tatami
 önerilir), `SAT004` kıvrım genişliğe göre çok dar (iç kenar katlanıyor), `SAT005` rung yok
-sayıldı. Köşe politikaları henüz yok (§19).
+sayıldı, `SAT006` kolon köşede bölündü. Miter/cap seçenekleri ve rails kolonlarında köşe
+bölme yol haritasındadır.
+
+### 11.3b Halat (burgu) bordür
+
+Bandın kendi koordinatlarında (s: eksen boyunca, t: enine) tel k, (k·adım, −w/2)'den
+(k·adım + L, +w/2)'ye giden mercek biçimli bir satin kolondur (Z burguda ayna). Tel kalınlığı,
+teller arası dik mesafe × bindirme (1,15). Sıra: bant ortasından underlay (baştan sona), sonra
+teller sondan başa, **birer ileri birer geri** — her tele geçiş bir adım boyunda ve kenar
+boyuncadır. Nesne başladığı uçta biter. Tanılar: `ROPE001` geçersiz/kısa path, `ROPE002`
+path bant genişliğine göre çok sıkı bükülüyor. **Bilinen sınırlama:** kenar boyunca adım
+geçişleri merceğin ince ucunda kaldığı için ince bir kenar çizgisi olarak görünebilir;
+kalibrasyon dikişiyle (F grubu) değerlendirilmelidir.
 
 ### 11.4 Tatami
 
@@ -345,6 +379,13 @@ seçilir. Bağlantı `ConnectionPolicy` ile: ≤3 mm doğrudan dikiş, 3–7 mm 
 tie-off + trim + jump + tie-in; renk değişiminde tie-off + trim + renk + jump + tie-in;
 başlangıçta jump + tie-in, sonda tie-off + trim + end. Gizli nesneler atlanır; tanımsız
 iplik `Q006`, boş blok `Q005`.
+
+**Gizli bağlantı (`ConnectionPolicy.HiddenTravel`, varsayılan açık):** aynı iplikte doğrudan
+dikiş eşiğini aşan bir boşluk, uçlardaki 1 mm dışında tamamen **bu ve sonra dikilecek**
+nesnelerin kapladığı alanın (satin kolon konturları, Tatami bölgeleri, halat bantları) içinde
+kalıyorsa jump + trim yerine 2,5 mm'lik travel dikişiyle geçilir (`Q007`). Önceden dikilmiş
+nesnenin üstünden geçen yol gizli sayılmaz. FER-7'nin 72 bin dikişte yalnız 11 trim kullanması
+bu tekniğe dayanır.
 
 ### 11.6 QualityPass
 
@@ -382,6 +423,10 @@ yorumlamaz; FER-7 okunup yeniden yazıldığında kayıtlar bayt bayt aynı.
 - **ParameterValidator:** fiziksel olarak anlamsız değerleri reddeder (ör. sıklık 0,15–5 mm).
 - **.embx:** ZIP; `manifest.json` (şema 1, generator sürümü), `design.json`,
   `artwork/source.svg`. Dikiş planı saklanmaz.
+- **DesignTransforms.Mirror:** tasarımı merkezine göre yatay/dikey yansıtır; Tatami açısı −θ,
+  halat burgusu S↔Z olur (gerçek ayna görüntüsü; sol/sağ ön panel çifti için).
+- **Profiller:** `ApplyStitchProfile` (geri alınabilir), içe aktarmada profil seçimi,
+  `SmallestHoopFor` ile otomatik kasnak.
 - **Analysis:** `StitchMetrics` (§15), `StitchSvgRenderer`. **Calibration:** `CalibrationSheet`.
 
 ## 14. Yerel host, API ve web editör
@@ -396,14 +441,17 @@ POST /api/projects/import/svg            POST /api/projects/open (embx gövdesi)
 GET  /api/projects/{id}                  DELETE /api/projects/{id}
 PUT  /api/projects/{id}/objects/{oid}    POST .../objects/{oid}/convert   DELETE .../objects/{oid}
 PUT  /api/projects/{id}/order | threads | settings
+PUT  /api/projects/{id}/profile            POST /api/projects/{id}/mirror
 POST /api/projects/{id}/undo | redo
 GET  /api/projects/{id}/preview | export/dst | export/embx
+GET  /api/profiles                          (dikiş profilleri + kasnak listesi)
 ```
 
 **Web editör** (React 18, TypeScript, Vite; üretim çıktısı host `wwwroot`'una):
-SVG/proje açma, dikiş sırası listesi (taşı/gizle/sil), tür dönüştürme, türe özgü
-parametreler (satin: kaynak, kalınlık, incelme), iplik paleti (gecikmeli kayıt), kasnak,
-kumaş rengi, Canvas önizleme (iki katmanlı iplik çizimi, jump gösterimi, seçili nesnenin
+SVG/proje açma, dikiş sırası listesi (taşı/gizle/sil), tür dönüştürme (Run/Satin/Tatami/Halat),
+türe özgü parametreler (satin: kaynak, kalınlık, incelme, köşe bölme açısı; halat: bant, adım,
+tel boyu, sıklık, bindirme, burgu), dikiş profili seçimi, yatay/dikey ayna, iplik paleti
+(gecikmeli kayıt), sunucudan gelen kasnak listesi (büyük çerçeveler dahil), kumaş rengi, Canvas önizleme (iki katmanlı iplik çizimi, jump gösterimi, seçili nesnenin
 kaynak geometrisi ve rung'ları, yakınlaştırma/kaydırma, tıklayarak seçim), simülatör
 (oynat/adım/hız/kaydırıcı), istatistikler, tanı listesi, geri al/yinele kısayolları.
 Sunucu tek doğruluk kaynağıdır; 409'da güncel durum yeniden yüklenir.
@@ -411,7 +459,8 @@ Sunucu tek doğruluk kaynağıdır; 409'da güncel durum yeniden yüklenir.
 ## 15. Komut satırı araçları
 
 ```text
-embroidery convert <in.svg> <out.dst> [--width mm] [--report r.json] [--preview p.svg] [--fabric #hex]
+embroidery convert <in.svg> <out.dst> [--width mm] [--profile standard|glossy-satin|metallic]
+                   [--mirror h|v] [--hoop WxH] [--report r.json] [--preview p.svg] [--fabric #hex]
 embroidery analyze <in.dst> [--report r.json] [--preview p.svg]
 embroidery compare <referans.dst> <aday.dst|aday.svg>
 embroidery calibration <klasör>     → .dst + .embx + açıklama tablosu (.md) + önizleme (.svg)
@@ -421,9 +470,12 @@ embroidery calibration <klasör>     → .dst + .embx + açıklama tablosu (.md)
 bantları, jump dizileri ve **çıkarılan** trim, **çıkarılan** satin atış genişliği ve aynı
 kenar sıklığı, **çıkarılan** düz dikiş payı. "Çıkarılan" değerler ham akışın yorumudur.
 
-Kalibrasyon sayfası (130×180 kasnak, 21 nesne): A — düz satin, genişlik 2–6 mm × sıklık
+Kalibrasyon sayfası (130×180 kasnak, 24 nesne): A — düz satin, genişlik 2–6 mm × sıklık
 0,30/0,40; B — pull comp 0/0,2/0,4; C — kavisli satin (r = 8 mm), uçları incelen; D — Tatami
-satır aralığı 0,35/0,40/0,45; E — run dikiş boyu 2,0/2,5/3,0.
+satır aralığı 0,35/0,40/0,45; E — run dikiş boyu 2,0/2,5/3,0; F — halat adımı 2,5/3,0/3,5.
+
+Ölçek testi: 290×500 mm'de 200 incelen spiral + halat bordür (≈243 bin dikiş) `convert` ile
+yaklaşık 2 saniyede üretilir (Release, tek çekirdek).
 
 ## 16. Tanı kodları
 
@@ -438,16 +490,18 @@ satır aralığı 0,35/0,40/0,45; E — run dikiş boyu 2,0/2,5/3,0.
 | IMP002 | Nesne | Satin kenarları konturdan tahmin edildi |
 | IMP003 | Nesne | Bilinmeyen `data-stitch` değeri |
 | RUN001 | Run | Yol dikilemeyecek kadar kısa |
-| SAT001–005 | Satin | Bkz. §11.3 |
+| SAT001–006 | Satin | Bkz. §11.3 |
+| ROPE001–002 | Halat | Geçersiz/kısa path; bant için fazla sıkı büküm |
 | TAT001 | Tatami | Bölge boş/çok küçük |
 | TAT002 | Tatami | Bölümler arası jump gerekti |
 | GEN001 | Motor | Beklenmeyen üretim hatası (plan düşmez) |
 | Q001–Q004 | Kalite | Kısa dikiş, duplicate temizliği, uzun dikiş, kasnak taşması |
 | Q005–Q006 | Sıralama | Boş blok, tanımsız iplik |
+| Q007 | Sıralama | Bağlantılar gizli travel olarak dikildi (bilgi) |
 
 ## 17. Test ve kalite stratejisi
 
-**Otomatik testler (88 .NET + 4 arayüz):** geometri (Bézier sapma sınırı, yay çemberi,
+**Otomatik testler (103 .NET + 4 arayüz):** geometri (Bézier sapma sınırı, yay çemberi,
 path parser kenar durumları, scanline delik/fill-rule, offset), SVG (birimler, transform,
 stil, gizli öğe, desteklenmeyen öğe, ölçekleme), generator'lar, satin kaynakları (stroke
 genişliği, incelme, kavisli satinde dış kenar sıklığı 0,36–0,41 mm, katlanma uyarısı, rung
@@ -459,7 +513,16 @@ isabetleri, .embx gidiş-dönüş, DST dışa aktarma), DST (±121 aralığını
 **Regresyon olarak sabitlenmiş gerçek hatalar:** kenar underlay'inde mikro dikiş; içbükey
 dolguda gereksiz jump; satır geçişinin şekil dışına çıkması; bastidor çentik bağlantısı
 (D9); çizgi→Tatami dönüşümünde boş bölge; satin underlay dönüş noktasının iki kez dikilmesi;
-sivri uçta sıfır genişlikli atış.
+sivri uçta sıfır genişlikli atış; köşede katlanan kolon (artık bölünüyor).
+
+Yeni özelliklerin testleri: köşe bölme (L şekli bölünür ve dış köşe örtülür; sıkı spiral tek
+parça kalır; ters yönde dikiş), halat (bant içinde kalma, S/Z ters eğim, kısa geçişler, başlangıç/
+bitiş ucu, SVG ipucu, JSON), profiller (parlak saten profili ölçülen aynı kenar sıklığı
+0,28–0,32 mm = FER-7; uygulama + geri alma; bilinmeyen profil), ayna (sınırlar korunur, açı ve
+burgu yansır, dikiş sayısı ±%3, iki kez ayna = özdeşlik), gizli bağlantı (sonra dikilen nesne
+altında travel; üstünde nesne yoksa, nesne önceden dikildiyse veya politika kapalıysa trim),
+otomatik kasnak (döndürmeli sığma dahil). Tarayıcı uçtan uca: içe aktarma, profil, halat
+düzenleme, ayna, geri alma, DST indirme — konsol hatası yok.
 
 **Golden süreç (`fixtures/`):** her referans için `source.svg`, `reference.dst`, bilinen
 ayarlar, sew-out fotoğrafları. İki deney ailesi ayrı tutulur: (1) *generator deneyi* —
@@ -497,21 +560,24 @@ Ayrıntı: `THIRD-PARTY-NOTICES.md`.
 | Sıra | İş | Kabul ölçütü |
 |---|---|---|
 | 1 | **Fiziksel kalibrasyon dikişi** (kullanıcı) | Sayfa hedef makine/kumaş/iplikte dikildi; sonuç tablosu doldu; varsayılanlar (sıklık, pull, satır aralığı) buna göre ayarlandı |
-| 2 | **Malzeme/iş profili** (`MaterialProfile`: metalik iplik, kumaş) ve profil seçimi | FER-7 profili ile üretimde aynı kenar sıklığı p50 = 0,30 ± 0,02 mm |
-| 3 | **Satin köşe politikaları** (Auto/Miter/Cap/Split) ve rails'te keskin kırık tespiti | 45°/90°/sivri köşe testleri; iç kenarda batış yığılması eşik altında |
+| 2 | ✅ **Dikiş profilleri** (standart, parlak saten/FER-7, metalik) | ✅ parlak saten profilinde ölçülen aynı kenar sıklığı 0,28–0,32 mm (test) |
+| 3 | ◐ **Satin köşeleri:** keskin köşede otomatik bölme ✅; miter/cap seçimi ve rails kolonlarında bölme ⏳ | 45°/90°/sivri köşe testleri; iç kenarda batış yığılması eşik altında |
 | 4 | **Tuvalde düzenleme:** rail/rung/orta çizgi sürükleme, giriş/çıkış noktası, kesme | Kullanıcı otomatik sonucu tuvalden düzeltebiliyor |
 | 5 | **FER-7 vektörünün sözleşmeyle çizilmesi** (insan işi) ve `compare` | Satin genişliği ±%5, sıklık ±%10, trim sayısı ≤ referans |
-| 6 | **Kapsama duyarlı travel ve nesneler arası gizli bağlantı** (Dijkstra/A*, dikilmiş alan cezası) | FER-7 benzeri tasarımda trim ≤ 15, görünür travel yok |
+| 6 | ◐ **Gizli bağlantı:** düz yol sonraki nesnelerin altındaysa travel ✅; engel etrafından yol bulma (Dijkstra/A*) ⏳ | FER-7 benzeri tasarımda trim ≤ 15, görünür travel yok |
 | 7 | **Öncelik korumalı sıralama optimizasyonu** (en yakın uygun + relocate, yön seçimi) | Jump toplam uzunluğu azalırken kalite metrikleri bozulmuyor |
-| 8 | **Parametrik halat (burgu) bordür nesnesi** — dikilmiş panellerde doğrulanan ihtiyaç, öncelik yüksek | FER-7 bordürü tek nesneyle üretilebiliyor |
-| 8b | **Ayna kopyası:** tasarımı veya seçili nesneleri yatay/dikey yansıtma (sol/sağ ön panel) | Yansıtılmış tasarım aynı metrikleri veriyor; satin yönü ve giriş/çıkış doğru |
-| 9 | **Büyük tasarım / çoklu kasnak** (bölme ve hizalama işaretleri) veya büyük çerçeve profili | 288×505 mm iş seçilen makineye göre dikilebiliyor |
+| 8 | ✅ **Parametrik halat (burgu) bordür** | ✅ testler; fiziksel görünüm kalibrasyon F grubunda doğrulanacak |
+| 8b | ✅ **Ayna** (tasarım düzeyinde yatay/dikey) | ✅ aynı dikiş sayısı, açı/burgu yansıması (test) |
+| 9 | ◐ **Büyük çerçeve:** 300×500 ve 400×600 hazır, otomatik kasnak seçimi ✅; tek kasnağa sığmayan işlerde bölme + hizalama işaretleri ⏳ | 288×505 mm iş seçilen makineye göre dikilebiliyor |
 | 10 | Dolu konturdan otomatik kolon önerisi (medial/triangulation, confidence) | Düşük güvende kullanıcıya soruyor; yanlış sessiz satin yok |
 | 11 | Ek formatlar (PES/JEF), EWA/Ink/Stitch karşılaştırma adaptörleri | Aynı girdide yan yana metrik raporu |
 
 ## 20. Açık konular ve riskler
 
-- **Fiziksel doğrulama yok:** üretilen DST'ler henüz makinede dikilmedi. En büyük risk.
+- **Fiziksel doğrulama yok:** üretilen DST'ler henüz makinede dikilmedi. En büyük risk;
+  ilk adım `embroidery calibration` sayfasının dikilmesi.
+- **Halat kenarı:** adım geçişlerinin kenarda görünür olup olmadığı dikişte kontrol edilmeli.
+- **Profil değerleri:** yalnız parlak saten sıklığı ölçümden geliyor; diğerleri başlangıç değeri.
 - **Makine ve çerçeve:** FER-7 288×505 mm; hangi makine/çerçeveyle dikildiği bilinmiyor.
   Kasnak modeli buna göre genişletilmeli (§19-9).
 - **İplik türü:** altın metalik mi, parlak polyester mi? Sıklık ve dikiş boyu profili buna bağlı.

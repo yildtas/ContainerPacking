@@ -2,7 +2,7 @@
 
 export type Vec2 = [number, number];
 
-export type StitchType = "run" | "satin" | "tatami";
+export type StitchType = "run" | "satin" | "tatami" | "rope";
 export type FillRule = "nonZero" | "evenOdd";
 export type ShortStitchMode = "none" | "innerOnly";
 export type Severity = "info" | "warning" | "error";
@@ -30,6 +30,7 @@ export interface SatinParameters {
   shortStitch: ShortStitchMode;
   shortStitchThresholdMm: number;
   shortStitchFraction: number;
+  cornerSplitAngleDeg: number;
   underlay: SatinUnderlay;
 }
 
@@ -88,7 +89,30 @@ export interface TatamiObject extends ObjectBase {
   parameters: TatamiParameters;
 }
 
-export type EmbroideryObject = RunObject | SatinObject | TatamiObject;
+export interface RopeParameters {
+  pitchMm: number;
+  strandLengthMm: number;
+  spacingMm: number;
+  overlapFactor: number;
+  twist: "s" | "z";
+  pullCompensationMm: number;
+  centerUnderlay: boolean;
+}
+
+export interface RopeObject extends ObjectBase {
+  type: "rope";
+  path: Vec2[];
+  widthMm: number;
+  parameters: RopeParameters;
+}
+
+export type EmbroideryObject = RunObject | SatinObject | TatamiObject | RopeObject;
+
+export interface StitchProfile {
+  id: string;
+  name: string;
+  description: string;
+}
 
 export interface EmbroideryThread {
   name: string;
@@ -111,6 +135,7 @@ export interface Design {
   objects: EmbroideryObject[];
   hoop: Hoop;
   machineProfileId: string;
+  stitchProfileId: string;
 }
 
 export interface Diagnostic {
