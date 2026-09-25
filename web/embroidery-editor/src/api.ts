@@ -91,11 +91,11 @@ export const api = {
   preview: (id: string, signal?: AbortSignal) => request(`/${id}/preview`, { signal }).then(json<Preview>),
 
   /** Downloads an export through fetch (the token header cannot be sent by a plain link). */
-  async download(id: string, format: "dst" | "embx") {
+  async download(id: string, format: "dst" | "embx" | "dst-parts") {
     const response = await request(`/${id}/export/${format}`);
     const disposition = response.headers.get("Content-Disposition") ?? "";
     const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
-    const fileName = match ? decodeURIComponent(match[1]) : `design.${format}`;
+    const fileName = match ? decodeURIComponent(match[1]) : format === "dst-parts" ? "design-parcalar.zip" : `design.${format}`;
     const url = URL.createObjectURL(await response.blob());
     const a = document.createElement("a");
     a.href = url;

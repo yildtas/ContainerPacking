@@ -13,7 +13,7 @@ using Embroidery.Machine;
 // Usage is printed when arguments are missing.
 
 const string Usage = """
-    embroidery convert <in.svg> <out.dst> [--width mm] [--profile id] [--profiles dir] [--mirror h|v] [--hoop WxH] [--optimize]
+    embroidery convert <in.svg> <out.dst> [--width mm] [--profile id] [--profiles dir] [--mirror h|v] [--hoop WxH] [--optimize] [--split]
                        [--report r.json] [--preview p.svg] [--fabric #RRGGBB]
     embroidery analyze <in.dst> [--report r.json] [--preview p.svg] [--fabric #RRGGBB] [--thread #RRGGBB]
     embroidery compare <reference.dst> <candidate.dst|candidate.svg>
@@ -112,6 +112,22 @@ static int Convert(string input, string output, Dictionary<string, string> optio
         if (parts.Length != 2) throw new ArgumentException("--hoop must look like 300x500 (mm).");
         var hoop = new Embroidery.Core.Model.Hoop(hoopText, double.Parse(parts[0], CultureInfo.InvariantCulture), double.Parse(parts[1], CultureInfo.InvariantCulture));
         design = service.UpdateSettings(design.Id, null, hoop, null, null);
+    }
+
+    if (options.ContainsKey("split"))
+    {
+        var split = HoopSplitter.Split(design, design.Hoop);
+        foreach (var d in split.Diagnostics) Console.WriteLine($"  {d.Severity,-7} {d.Code} {d.Message}");
+        if (!split.Succeeded) return 2;
+        foreach (var part in split.Parts)
+        {
+            var partFile = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(output))!, $"{Path.GetFileNameWithoutExtension(output)}-{part.Number}.dst");
+            var (partEncoded, _) = service.Encode(part.Design);
+            File.WriteAllBytes(partFile, DstWriter.Write(partEncoded));
+            Console.WriteLine(FormattableString.Invariant($"  part {part.Number} (col {part.Column + 1}, row {part.Row + 1}): {Path.GetFileName(partFile)}, {part.Area.Width:0} × {part.Area.Height:0} mm"));
+        }
+
+        return 0;
     }
 
     var (encoded, plan) = service.Encode(design);

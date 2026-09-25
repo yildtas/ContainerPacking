@@ -227,6 +227,44 @@ public sealed class ProjectService
         return (MachineEncoder.Encode(plan, profile, design.Name), plan);
     }
 
+    /// <summary>
+    /// For designs larger than the hoop: one DST per hooping in a ZIP, with a text file telling
+    /// the operator the order, grid position and registration marks of each part.
+    /// </summary>
+    public ExportResult ExportDstParts(Guid projectId, CancellationToken ct = default)
+    {
+        var design = Get(projectId);
+        var split = HoopSplitter.Split(design, design.Hoop);
+        if (!split.Succeeded)
+        {
+            throw new DesignValidationException(string.Join(" ", split.Diagnostics.Select(d => d.Message)));
+        }
+
+        using var ms = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var guide = new System.Text.StringBuilder();
+            guide.AppendLine(FormattableString.Invariant($"{design.Name}: {split.Parts.Count} kasnaklama, kasnak {split.Hoop.WidthMm:0} × {split.Hoop.HeightMm:0} mm"));
+            guide.AppendLine("Her parçada önce 'Hizalama' ipliğiyle artı işaretleri dikilir; bir sonraki parçayı bu işaretler üst üste gelecek şekilde kasnaklayın.");
+            guide.AppendLine();
+            foreach (var part in split.Parts)
+            {
+                var (encoded, _) = Encode(part.Design, ct);
+                var entry = zip.CreateEntry($"{SafeFileName(part.Design.Name)}.dst");
+                using (var s = entry.Open()) s.Write(DstWriter.Write(encoded));
+                var center = part.Area.Center;
+                guide.AppendLine(FormattableString.Invariant(
+                    $"{part.Number}. {part.Design.Name}.dst  sütun {part.Column + 1}, satır {part.Row + 1}  merkez ({center.X:0.0}, {center.Y:0.0}) mm  {part.Area.Width:0} × {part.Area.Height:0} mm  {part.Design.Objects.Count(o => o.Name.StartsWith(HoopSplitter.AlignmentThreadName, StringComparison.Ordinal))} işaret"));
+            }
+
+            var readme = zip.CreateEntry("KASNAKLAMA.txt");
+            using var w = new StreamWriter(readme.Open(), new System.Text.UTF8Encoding(false));
+            w.Write(guide.ToString());
+        }
+
+        return new ExportResult(ms.ToArray(), SafeFileName(design.Name) + "-parcalar.zip", split.Diagnostics);
+    }
+
     public ExportResult ExportEmbx(Guid projectId)
     {
         var design = Get(projectId);

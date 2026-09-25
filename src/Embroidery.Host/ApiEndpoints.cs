@@ -109,6 +109,12 @@ public static class ApiEndpoints
             return Results.File(result.Data, "application/octet-stream", result.FileName);
         });
 
+        api.MapGet("/{id:guid}/export/dst-parts", (Guid id, ProjectService projects, CancellationToken ct) =>
+        {
+            var result = projects.ExportDstParts(id, ct);
+            return Results.File(result.Data, "application/zip", result.FileName);
+        });
+
         api.MapGet("/{id:guid}/export/embx", (Guid id, ProjectService projects) =>
         {
             var result = projects.ExportEmbx(id);

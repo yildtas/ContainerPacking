@@ -189,6 +189,14 @@ export function App() {
           <button onClick={() => design && api.download(design.id, "embx").catch((e) => notify(e.message, true))} disabled={!design}>
             Projeyi kaydet (.embx)
           </button>
+          {preview?.diagnostics.some((d) => d.code === "Q004") && (
+            <button
+              onClick={() => design && api.download(design.id, "dst-parts").catch((e) => notify(e.message, true))}
+              title="Tasarım kasnağa sığmıyor: her kasnaklama için ayrı DST ve hizalama işaretleri (ZIP)"
+            >
+              Parçalı DST (zip)
+            </button>
+          )}
           <button
             className="primary"
             onClick={() => design && api.download(design.id, "dst").catch((e) => notify(e.message, true))}
