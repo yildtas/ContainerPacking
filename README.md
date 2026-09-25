@@ -86,13 +86,14 @@ src/
   Embroidery.Formats       DST yazıcı/okuyucu
   Embroidery.Application   proje oturumları, undo/redo, cache, .embx
   Embroidery.Host          yerel ASP.NET Core API + arayüz sunumu
+  Embroidery.Tools         embroidery CLI (convert, analyze, compare, calibration)
 web/embroidery-editor      React + TypeScript editör
 tests/                     birim ve format testleri
 ```
 
 ## Durum ve sınırlar
 
-MVP kapsamı tamam. Henüz yapılmayanlar (bkz. mimari belgesi, bölüm 29):
+MVP kapsamı tamam. Sıradaki işler mimari belgesinin 19. bölümünde; başlıcaları:
 
 - Tuval üzerinde rail/rung sürükleyerek düzenleme; dolu konturdan otomatik satin kolonu çıkarımı
 - Satin köşe stratejileri (fan, mitre)
