@@ -35,7 +35,7 @@ public class BackendTests
         Assert.False(ewa.IsConfigured);
         var r = await ewa.DigitizeAsync("a.svg", Svg);
         Assert.False(r.Succeeded);
-        Assert.Contains("AppId", r.Message);
+        Assert.Contains("appId", r.Message);
     }
 
     [Fact]
