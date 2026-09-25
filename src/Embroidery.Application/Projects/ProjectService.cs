@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using Embroidery.Application.Analysis;
 using Embroidery.Application.Caching;
+using Embroidery.Application.Export;
 using Embroidery.Application.Import;
 using Embroidery.Application.Preview;
 using Embroidery.Core.Diagnostics;
@@ -71,6 +73,35 @@ public sealed class ProjectService
         };
         _sessions[design.Id] = new ProjectSession(design);
         return new ImportResult(design, diagnostics);
+    }
+
+    /// <summary>
+    /// Opens a machine file as an editable project by tracing it back to vector objects
+    /// (<see cref="DstTracer"/>). Colours are placeholders; the diagnostics say what was recovered.
+    /// </summary>
+    public ImportResult ImportDst(string fileName, byte[] dst, TraceOptions? options = null, string? stitchProfileId = null)
+    {
+        var profile = ResolveProfile(stitchProfileId);
+        EncodedStitchPlan plan;
+        try
+        {
+            plan = DstReader.Read(dst).Plan;
+        }
+        catch (DstFormatException ex)
+        {
+            throw new DesignValidationException($"Not a readable DST file: {ex.Message}");
+        }
+
+        var traced = DstTracer.Trace(plan, Path.GetFileNameWithoutExtension(fileName), options);
+        if (traced.Design.Objects.Count == 0) throw new DesignValidationException("The DST file contains no stitches that could be traced.");
+        var design = traced.Design with
+        {
+            Revision = 1,
+            Objects = traced.Design.Objects.Select(profile.Apply).ToList(),
+            StitchProfileId = profile.Id,
+        };
+        _sessions[design.Id] = new ProjectSession(design);
+        return new ImportResult(design, traced.Diagnostics);
     }
 
     public Design Open(Stream embx)
@@ -265,6 +296,13 @@ public sealed class ProjectService
         }
 
         return new ExportResult(ms.ToArray(), SafeFileName(design.Name) + "-parcalar.zip", split.Diagnostics);
+    }
+
+    /// <summary>The design as SVG in the vector delivery convention (re-importable).</summary>
+    public ExportResult ExportSvg(Guid projectId)
+    {
+        var design = Get(projectId);
+        return new ExportResult(System.Text.Encoding.UTF8.GetBytes(DesignSvgWriter.Write(design)), SafeFileName(design.Name) + ".svg", []);
     }
 
     public ExportResult ExportEmbx(Guid projectId)

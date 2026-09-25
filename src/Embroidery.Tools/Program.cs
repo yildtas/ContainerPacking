@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using Embroidery.Application.Analysis;
 using Embroidery.Application.Calibration;
+using Embroidery.Application.Export;
 using Embroidery.Application.Projects;
 using Embroidery.Application.Serialization;
 using Embroidery.Core.Diagnostics;
@@ -17,6 +18,7 @@ const string Usage = """
                        [--report r.json] [--preview p.svg] [--fabric #RRGGBB]
     embroidery analyze <in.dst> [--report r.json] [--preview p.svg] [--fabric #RRGGBB] [--thread #RRGGBB]
     embroidery compare <reference.dst> <candidate.dst|candidate.svg>
+    embroidery trace <in.dst> <out.svg> [--pull mm] [--regenerate out.dst]
     embroidery calibration <out-dir>
     embroidery profile list [--profiles dir]
     embroidery profile create <id> <name> [--from id] [--satin-spacing mm] [--satin-pull mm] [--tatami-row mm]
@@ -30,6 +32,7 @@ try
         "convert" when args.Length >= 3 => Convert(args[1], args[2], Options(args, 3)),
         "analyze" when args.Length >= 2 => Analyze(args[1], Options(args, 2)),
         "compare" when args.Length >= 3 => Compare(args[1], args[2]),
+        "trace" when args.Length >= 3 => Trace(args[1], args[2], Options(args, 3)),
         "calibration" when args.Length >= 2 => Calibration(args[1]),
         "profile" when args.Length >= 2 && args[1] == "list" => ProfileList(Options(args, 2)),
         "profile" when args.Length >= 4 && args[1] == "create" => ProfileCreate(args[2], args[3], Options(args, 4)),
@@ -188,6 +191,29 @@ static int Compare(string reference, string candidate)
     Row("satin throw p50 mm (inferred)", r.SatinThrowMm?.P50 ?? 0, c.SatinThrowMm?.P50 ?? 0);
     Row("same-rail spacing p50 mm (inf.)", r.SatinSameRailSpacingMm?.P50 ?? 0, c.SatinSameRailSpacingMm?.P50 ?? 0);
     Row("running share (inferred)", r.RunningShare, c.RunningShare);
+    return 0;
+}
+
+static int Trace(string input, string output, Dictionary<string, string> options)
+{
+    var pull = options.TryGetValue("pull", out var p) ? double.Parse(p, CultureInfo.InvariantCulture) : 0;
+    var original = DstReader.Read(File.ReadAllBytes(input)).Plan;
+    var traced = DstTracer.Trace(original, Path.GetFileNameWithoutExtension(input), new TraceOptions { PullCompensationMm = pull });
+    File.WriteAllText(output, DesignSvgWriter.Write(traced.Design));
+    Console.WriteLine($"{Path.GetFileName(output)}: {traced.SatinColumns} satin column(s), {traced.RunObjects} run(s), {traced.Design.Threads.Count} thread(s)");
+    foreach (var d in traced.Diagnostics) Console.WriteLine($"  {d.Severity,-7} {d.Code} {d.Message}");
+
+    if (options.TryGetValue("regenerate", out var regenerated))
+    {
+        // Sew the traced vectors with our engine and compare with the original machine file.
+        var service = new ProjectService(profiles: Store(options));
+        var design = service.ImportSvg(Path.GetFileName(output), File.ReadAllText(output), stitchProfileId: options.GetValueOrDefault("profile")).Design;
+        var (encoded, _) = service.Encode(design);
+        File.WriteAllBytes(regenerated, DstWriter.Write(encoded));
+        Console.WriteLine();
+        return Compare(input, regenerated);
+    }
+
     return 0;
 }
 

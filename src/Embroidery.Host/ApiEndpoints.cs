@@ -1,4 +1,5 @@
 using System.Globalization;
+using Embroidery.Application.Analysis;
 using Embroidery.Application.Projects;
 using Embroidery.Core.Diagnostics;
 using Embroidery.Core.Model;
@@ -41,6 +42,15 @@ public static class ApiEndpoints
         api.MapPost("/import/svg", (ImportSvgRequest request, ProjectService projects) =>
         {
             var result = projects.ImportSvg(request.FileName, request.Svg, new SvgImportOptions { TargetWidthMm = request.TargetWidthMm }, request.StitchProfileId);
+            return Results.Ok(State(projects, result.Design, result.Diagnostics));
+        });
+
+        // A machine file traced back to editable objects; body = raw DST bytes.
+        api.MapPost("/import/dst", async (HttpRequest request, ProjectService projects, string? fileName, double? pullMm, string? stitchProfileId) =>
+        {
+            using var buffer = new MemoryStream();
+            await request.Body.CopyToAsync(buffer);
+            var result = projects.ImportDst(fileName ?? "desen.dst", buffer.ToArray(), new TraceOptions { PullCompensationMm = pullMm ?? 0 }, stitchProfileId);
             return Results.Ok(State(projects, result.Design, result.Diagnostics));
         });
 
@@ -113,6 +123,12 @@ public static class ApiEndpoints
         {
             var result = projects.ExportDstParts(id, ct);
             return Results.File(result.Data, "application/zip", result.FileName);
+        });
+
+        api.MapGet("/{id:guid}/export/svg", (Guid id, ProjectService projects) =>
+        {
+            var result = projects.ExportSvg(id);
+            return Results.File(result.Data, "image/svg+xml", result.FileName);
         });
 
         api.MapGet("/{id:guid}/export/embx", (Guid id, ProjectService projects) =>

@@ -9,6 +9,8 @@ public readonly record struct Bounds(double MinX, double MinY, double MaxX, doub
     public bool IsEmpty => MinX > MaxX || MinY > MaxY;
     public double Width => IsEmpty ? 0 : MaxX - MinX;
     public double Height => IsEmpty ? 0 : MaxY - MinY;
+    public bool Contains(Vec2 p) => p.X >= MinX && p.X <= MaxX && p.Y >= MinY && p.Y <= MaxY;
+
     public Vec2 Center => new((MinX + MaxX) / 2, (MinY + MaxY) / 2);
 
     public Bounds Include(Vec2 p) => new(

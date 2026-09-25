@@ -126,14 +126,16 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, [undo, redo, sim]);
 
-  const openFile = async (file: File, kind: "svg" | "embx") => {
+  const openFile = async (file: File, kind: "svg" | "embx" | "dst") => {
     setBusy(true);
     try {
       const width = Number(targetWidth.replace(",", "."));
       const state =
         kind === "svg"
           ? await api.importSvg(file.name, await file.text(), targetWidth && width > 0 ? width : undefined)
-          : await api.open(await file.arrayBuffer());
+          : kind === "dst"
+            ? await api.importDst(file.name, await file.arrayBuffer())
+            : await api.open(await file.arrayBuffer());
       setSelectedId(null);
       setPreview(null);
       setImportDiagnostics(state.diagnostics);
@@ -173,8 +175,8 @@ export function App() {
             value={targetWidth}
             onChange={(e) => setTargetWidth(e.target.value)}
           />
-          <button onClick={() => embxInput.current?.click()} disabled={busy}>
-            Proje aç
+          <button onClick={() => embxInput.current?.click()} disabled={busy} title="Kaydedilmiş proje (.embx) ya da makine dosyası (.dst, vektöre geri izlenir)">
+            Proje / DST aç
           </button>
         </span>
         <span className="group">
@@ -188,6 +190,13 @@ export function App() {
         <span className="group right">
           <button onClick={() => design && api.download(design.id, "embx").catch((e) => notify(e.message, true))} disabled={!design}>
             Projeyi kaydet (.embx)
+          </button>
+          <button
+            onClick={() => design && api.download(design.id, "svg").catch((e) => notify(e.message, true))}
+            disabled={!design}
+            title="Vektör teslim kuralıyla SVG (tekrar içe aktarılabilir)"
+          >
+            SVG (vektör)
           </button>
           {preview?.diagnostics.some((d) => d.code === "Q004") && (
             <button
@@ -210,10 +219,10 @@ export function App() {
           e.target.value = "";
           if (f) void openFile(f, "svg");
         }} />
-        <input ref={embxInput} type="file" accept=".embx" hidden onChange={(e) => {
+        <input ref={embxInput} type="file" accept=".embx,.dst,.DST" hidden onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = "";
-          if (f) void openFile(f, "embx");
+          if (f) void openFile(f, f.name.toLowerCase().endsWith(".dst") ? "dst" : "embx");
         }} />
       </header>
 
@@ -311,8 +320,8 @@ export function App() {
         ) : (
           <div className="welcome">
             <h2>Başlayın</h2>
-            <p>Bir SVG içe aktarın. Dolgulu şekiller Tatami, kalın çizgiler Satin, ince çizgiler Run olarak açılır; türü ve parametreleri sağ panelden değiştirebilirsiniz.</p>
-            <p>Kaydedilmiş bir <code>.embx</code> projesini de açabilirsiniz.</p>
+            <p>Bir SVG içe aktarın. Dar dolgulu şekiller otomatik satin kolonu, geniş dolgular Tatami, kalın çizgiler Satin, ince çizgiler Run olarak açılır; türü ve parametreleri sağ panelden değiştirebilirsiniz.</p>
+            <p>Kaydedilmiş bir <code>.embx</code> projesini ya da bir <code>.dst</code> makine dosyasını da açabilirsiniz; DST, düzenlenebilir satin kolonlarına ve çizgilere geri izlenir.</p>
           </div>
         )}
       </aside>

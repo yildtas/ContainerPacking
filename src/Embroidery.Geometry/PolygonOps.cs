@@ -162,6 +162,15 @@ public static class PolygonOps
         return FromClipper(simplified) with { FillRule = region.FillRule };
     }
 
+    /// <summary>Ramer–Douglas–Peucker on an open polyline; the end points are kept.</summary>
+    public static IReadOnlyList<Vec2> SimplifyPath(IReadOnlyList<Vec2> path, double toleranceMm)
+    {
+        if (path.Count < 3) return path;
+        var p = new PathD(path.Count);
+        foreach (var v in path) p.Add(new PointD(v.X, v.Y));
+        return Clipper.RamerDouglasPeucker(p, toleranceMm).Select(q => new Vec2(q.x, q.y)).ToArray();
+    }
+
     /// <summary>The area covered by a stroke of <paramref name="widthMm"/> along an open path (butt ends).</summary>
     public static Region BufferPath(IReadOnlyList<Vec2> path, double widthMm)
     {

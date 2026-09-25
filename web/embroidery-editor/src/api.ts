@@ -54,6 +54,14 @@ export const api = {
   open: (data: ArrayBuffer) =>
     request("/open", { method: "POST", body: data, headers: { "Content-Type": "application/octet-stream" } }).then(json<ProjectState>),
 
+  /** Opens a machine file: the server traces it back to satin columns and runs. */
+  importDst: (fileName: string, data: ArrayBuffer, pullMm = 0.2) =>
+    request(`/import/dst?fileName=${encodeURIComponent(fileName)}&pullMm=${pullMm}`, {
+      method: "POST",
+      body: data,
+      headers: { "Content-Type": "application/octet-stream" },
+    }).then(json<ProjectState>),
+
   get: (id: string) => request(`/${id}`).then(json<ProjectState>),
 
   updateObject: (id: string, revision: number, item: EmbroideryObject) =>
@@ -91,7 +99,7 @@ export const api = {
   preview: (id: string, signal?: AbortSignal) => request(`/${id}/preview`, { signal }).then(json<Preview>),
 
   /** Downloads an export through fetch (the token header cannot be sent by a plain link). */
-  async download(id: string, format: "dst" | "embx" | "dst-parts") {
+  async download(id: string, format: "dst" | "embx" | "dst-parts" | "svg") {
     const response = await request(`/${id}/export/${format}`);
     const disposition = response.headers.get("Content-Disposition") ?? "";
     const match = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition);
