@@ -206,6 +206,32 @@ public class GeneratorTests
         }
     }
 
+    /// <summary>
+    /// Regression from the 2026-09-23 source review: bastidor accepted the short connector
+    /// (10,1)→(10,3) across the notch because it only checked distance. So did we.
+    /// </summary>
+    [Theory]
+    [InlineData(0.0, false)]
+    [InlineData(0.2, false)]
+    [InlineData(0.2, true)]
+    public void Short_row_connectors_never_cross_a_notch(double pull, bool underlay)
+    {
+        var region = new Region([new Vec2[] { new(0, 0), new(10, 0), new(10, 1.5), new(8, 2), new(10, 2.5), new(10, 6), new(0, 6) }]);
+        var p = new TatamiParameters
+        {
+            AngleDeg = 0, RowSpacingMm = 2, StitchLengthMm = 3, PullCompensationMm = pull,
+            Underlay = new TatamiUnderlay { EdgeRun = underlay, Fill = underlay },
+        };
+        var stitches = new TatamiGenerator().Generate(Fill(region, p), Start).Value.Stitches;
+        var allowed = PolygonOps.Offset(region, pull + 0.06);
+        for (var i = 1; i < stitches.Count; i++)
+        {
+            if (stitches[i].Command is not (StitchCommand.Stitch or StitchCommand.Travel)) continue;
+            var (a, b) = (stitches[i - 1].Position, stitches[i].Position);
+            Assert.True(PolygonOps.SegmentInside(allowed, a, b, 0.05), $"needle-down {a}->{b} leaves the shape");
+        }
+    }
+
     [Fact]
     public void Satin_underlay_does_not_repeat_turning_points()
     {

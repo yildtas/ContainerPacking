@@ -63,6 +63,7 @@ public sealed class TatamiGenerator : IStitchGenerator<TatamiObject>
     private static int EdgeRun(Region region, double stitchLength, ref Vec2 position, List<LogicalStitch> output)
     {
         var jumps = 0;
+        var allowed = PolygonOps.Offset(region, TatamiFill.ContainmentToleranceMm);
         var remaining = region.Rings.ToList();
         while (remaining.Count > 0)
         {
@@ -74,7 +75,7 @@ public sealed class TatamiGenerator : IStitchGenerator<TatamiObject>
 
             var path = new List<Vec2>(ring.Count + 1);
             for (var i = 0; i <= ring.Count; i++) path.Add(ring[(startIndex + i) % ring.Count]);
-            if (output.Count > 0) jumps += TatamiFill.Connect(region, position, path[0], StitchLayer.Underlay, output);
+            if (output.Count > 0) jumps += TatamiFill.Connect(allowed, position, path[0], StitchLayer.Underlay, output);
             foreach (var pt in RunSampler.Sample(path, stitchLength, 30))
             {
                 output.Add(new(pt, StitchCommand.Stitch, StitchLayer.Underlay));
@@ -116,6 +117,9 @@ internal sealed class TatamiFill(
 {
     private const double TravelStitchLength = 2.5;
 
+    /// <summary>Numerical slack around the region for containment tests (row ends lie exactly on the edge).</summary>
+    public const double ContainmentToleranceMm = 0.05;
+
     private sealed record Row(int Index, double Y, Interval Span);
 
     private sealed class Section
@@ -133,6 +137,9 @@ internal sealed class TatamiFill(
         Vec2 ToWorld(Vec2 v) => v.Rotate(angle);
 
         var local = PolygonOps.Transform(region, ToLocal);
+        // Needle-down moves must stay in the region grown by the pull compensation (row ends
+        // are extended that far on purpose) and nowhere else, however short they are.
+        var allowed = PolygonOps.Offset(local, Math.Max(0, pullCompensation) + ContainmentToleranceMm);
         var sections = BuildSections(local, ct);
         var jumps = 0;
         var here = ToLocal(position);
@@ -151,7 +158,7 @@ internal sealed class TatamiFill(
             var start = StartOf(section, fromTop, leftFirst);
             if (localOutput.Count > 0 || output.Count > 0)
             {
-                jumps += Connect(local, here, start, layer, localOutput);
+                jumps += Connect(allowed, here, start, layer, localOutput);
             }
 
             var rows = fromTop ? section.Rows : Enumerable.Reverse(section.Rows).ToList();
@@ -160,14 +167,21 @@ internal sealed class TatamiFill(
             foreach (var row in rows)
             {
                 var pts = RowPenetrations(row, leftToRight);
-                if (last is { } l && Vec2.Distance(l, pts[0]) > stitchLength)
+                if (last is { } l && Vec2.Distance(l, pts[0]) > 1e-6)
                 {
-                    // Row-to-row step along a slanted edge: follow the edge on concave parts
-                    // and keep stitches short.
-                    var route = Route(local, l, pts[0]) ?? [l, pts[0]];
-                    foreach (var q in RunSampler.Sample(route, stitchLength).Skip(1).SkipLast(1))
+                    // Row-to-row step: checked for containment whatever its length (a short step
+                    // across a notch still leaves the shape). Follows the edge on concave parts.
+                    if (Route(allowed, l, pts[0]) is { } route)
                     {
-                        localOutput.Add(new(q, StitchCommand.Stitch, layer));
+                        foreach (var q in RunSampler.Sample(route, stitchLength).Skip(1).SkipLast(1))
+                        {
+                            localOutput.Add(new(q, StitchCommand.Stitch, layer));
+                        }
+                    }
+                    else
+                    {
+                        localOutput.Add(new(pts[0], StitchCommand.Jump, layer));
+                        jumps++;
                     }
                 }
 
@@ -194,7 +208,7 @@ internal sealed class TatamiFill(
         var distance = Vec2.Distance(from, to);
         if (distance < 1e-6) return 0;
 
-        var route = distance <= TravelStitchLength ? [from, to] : Route(region, from, to);
+        var route = Route(region, from, to);
         if (route is not null)
         {
             foreach (var q in RunSampler.Sample(route, TravelStitchLength, 30).Skip(1).SkipLast(1))
